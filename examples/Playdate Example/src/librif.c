@@ -238,7 +238,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
                 
                 pool->address += pixelsSizeInBytes;
                 
-                memcpy(patternPtr, &pattern_a, sizeof(RIF_Pattern));
+                memcpy(patternPtr, &pattern_a, sizeof(RIF_Pattern_A));
                 image->patterns_a[i] = patternPtr;
             }
         }

@@ -35,6 +35,8 @@ end
 
 local imageLoaded = false
 
+display.setRefreshRate(0)
+
 function playdate.update()
 
     if (not imageLoaded) then
