@@ -797,12 +797,16 @@ void librif_gfx_init(void){
             RIF_pd_bayer2_rows[y] = y % 2;
             RIF_pd_bayer4_rows[y] = y % 4;
             RIF_pd_bayer8_rows[y] = y % 8;
-            
+        }
+        
+        for(int x = 0; x < LCD_COLUMNS; x++){
+            RIF_pd_bayer2_cols[x] = x % 2;
+            RIF_pd_bayer4_cols[x] = x % 4;
+            RIF_pd_bayer8_cols[x] = x % 8;
+        }
+        
+        for(int y = 0; y < LCD_ROWS; y++){
             for(int x = 0; x < LCD_COLUMNS; x++){
-                RIF_pd_bayer2_cols[x] = x % 2;
-                RIF_pd_bayer4_cols[x] = x % 4;
-                RIF_pd_bayer8_cols[x] = x % 8;
-                
                 int i = y * LCD_COLUMNS + x;
                 
                 int block_x = x / 8;
