@@ -166,7 +166,7 @@ librif.graphics.init()
 
 In Lua there are two image objects `librif.image` and `librif.cimage` that share the same methods.
 
-* `image:open(filename, [pool])` to open an image
+* `image.open(filename, [pool])` to open an image
 * `image:read(size)` to read the image, returns a tuple `(success, closed)`
 * `image:hasAlpha()`
 * `image:getWidth()`
@@ -180,7 +180,7 @@ In Lua there are two image objects `librif.image` and `librif.cimage` that share
 
 `librif.pool` object
 
-* `pool:new(size)`
+* `pool.new(size)`
 * `pool:clear()`
 * `pool:release()`
 
@@ -207,7 +207,7 @@ On Playdate, you can draw images with
 
 Additional methods
 
-* `graphics.setDitherType()`
+* `graphics.setDitherType(type)`
 * `graphics.setBlendColor(color)` set a blend color that will be ignored in drawing. Use it to get transparency on non-alpha images.
 * `graphics.clearBlendColor()` clear the blend color
 
