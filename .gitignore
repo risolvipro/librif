@@ -1,0 +1,10 @@
+# Xcode
+xcuserdata/
+
+*.xcworkspace
+*.xcuserstate
+!default.xcworkspace
+
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
