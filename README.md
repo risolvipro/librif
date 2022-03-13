@@ -117,11 +117,11 @@ RIF_Pixel pixel = image->pixels_a[y * image->width + x]
 
 * In `librif_image_read`, pass `0` size to read the entire file
 * Image properties: `hasAlpha`, `width`, `height`
-* Properties `readBytes` and `totalBytes` can be used to track loading, please note that they doesn't reflect actual bytes.
+* Properties `readBytes` and `totalBytes` can be used to track loading, please note that they don't reflect actual bytes.
 
 ## Pool
 
-Images are saved in memory with malloc, you can optionally create a `RIF_Pool` object to load them into reserved memory.
+Images are saved in memory with malloc, you can optionally create a `RIF_Pool` instance to load them into reserved memory.
 
 ```c
 // 1 MB pool
