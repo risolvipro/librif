@@ -53,9 +53,19 @@ Raw image (grayscale) | PNG (RGB) | RIF compressed (grayscale)
 
 Supporting Playdate:
 
-* In your editor, add the preprocessor flag `PLAYDATE=1` 
-* In MakeFile, set `UDEFS = -DPLAYDATE=1`
-* In Makefile, set `CLANGFLAGS = -DPLAYDATE=1`
+* Add the preprocessor flag `PLAYDATE=1` in your editor
+* Change the Makefile as follows
+
+```makefile
+SRC += librif.c
+
+# lua support
+SRC += src/librif_pd_luaglue.c
+
+UDEFS = -DPLAYDATE=1
+
+CLANGFLAGS = -DPLAYDATE=1
+```
 
 Sample code
 
@@ -75,7 +85,7 @@ nullable RIF_Image* librif_image_open(const char *filename, nullable RIF_Pool *p
 bool librif_image_read(RIF_Image *image, size_t size, nullable bool *closed);
 ```
 
-The compressed image has equivalent functions.
+The compressed image has corresponding functions.
 
 ```c
 nullable RIF_CImage* librif_cimage_open(const char *filename, nullable RIF_Pool *pool);
@@ -231,8 +241,9 @@ Pixels are stored in a rows / columns layout.
 
 ### In raw mode
 
-Alpha: 1 byte for alpha (uint8) and 1 byte for color (uint8). Color is skipped if alpha equals to zero\
-No alpha: 1 byte per pixel (uint8)
+Non-alpha: 1 byte per pixel (uint8)
+
+Alpha: 1 byte for alpha (uint8) and 1 byte for color (uint8). Color is skipped if alpha equals to zero
 
 ### In compressed mode
 
