@@ -92,6 +92,7 @@ void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uin
 
 static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image);
 static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image);
+static void librif_opaque_free(RIF_OpaqueImage *image);
 
 void* librif_malloc(size_t size);
 void* librif_calloc(size_t count, size_t size);
@@ -649,6 +650,11 @@ static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image){
     return opaqueImage;
 }
 
+static void librif_opaque_free(RIF_OpaqueImage *image){
+    
+    librif_free(image);
+}
+
 size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha){
     uint32_t pixelsInPattern = patternSize * patternSize;
     
@@ -707,6 +713,7 @@ void librif_image_free(RIF_Image *image){
         }
     }
     
+    librif_opaque_free(image->opaque);
     librif_free(image);
 }
 
@@ -737,6 +744,7 @@ void librif_cimage_free(RIF_CImage *image){
         }
     }
 
+    librif_opaque_free(image->opaque);
     librif_free(image);
 }
 
