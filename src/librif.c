@@ -26,8 +26,11 @@ PlaydateAPI *RIF_pd;
 
 #endif
 
-static bool librif_gfx_init_flag = false;
-static RIF_DitherType librif_gfx_dither_type = RIF_DitherTypeBayer4;
+static bool gfx_init_flag = false;
+static RIF_DitherType gfx_dither_type = RIF_DitherTypeBayer4;
+
+static uint8_t gfx_blend_color = 0;
+static bool gfx_has_blend_color = false;
 
 static const size_t patternIndexInBytes = 4;
 
@@ -785,8 +788,8 @@ void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uin
 
 void librif_gfx_init(void){
     
-    if(!librif_gfx_init_flag){
-        librif_gfx_init_flag = true;
+    if(!gfx_init_flag){
+        gfx_init_flag = true;
         
         #ifdef PLAYDATE
         
@@ -820,7 +823,17 @@ void librif_gfx_init(void){
 }
 
 void librif_gfx_set_dither_type(RIF_DitherType type){
-    librif_gfx_dither_type = type;
+    gfx_dither_type = type;
+}
+
+void librif_gfx_set_blend_color(uint8_t color){
+    gfx_has_blend_color = true;
+    gfx_blend_color = color;
+}
+
+void librif_gfx_clear_blend_color(void){
+    gfx_has_blend_color = false;
+    gfx_blend_color = 0;
 }
 
 void librif_gfx_draw_image(RIF_OpaqueImage *image, int x, int y) {
@@ -885,10 +898,10 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
     #ifdef PLAYDATE
     bayer_rows = RIF_pd_bayer4_rows;
     
-    if(librif_gfx_dither_type == RIF_DitherTypeBayer2){
+    if(gfx_dither_type == RIF_DitherTypeBayer2){
         bayer_rows = RIF_pd_bayer2_rows;
     }
-    else if(librif_gfx_dither_type == RIF_DitherTypeBayer8){
+    else if(gfx_dither_type == RIF_DitherTypeBayer8){
         bayer_rows = RIF_pd_bayer8_rows;
     }
     #endif
@@ -896,10 +909,10 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
     #ifdef PLAYDATE
     bayer_cols = RIF_pd_bayer4_cols;
     
-    if(librif_gfx_dither_type == RIF_DitherTypeBayer2){
+    if(gfx_dither_type == RIF_DitherTypeBayer2){
         bayer_cols = RIF_pd_bayer2_cols;
     }
-    else if(librif_gfx_dither_type == RIF_DitherTypeBayer8){
+    else if(gfx_dither_type == RIF_DitherTypeBayer8){
         bayer_cols = RIF_pd_bayer8_cols;
     }
     #endif
@@ -927,21 +940,32 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
             uint8_t color, alpha;
             librif_opaque_get_pixel(image, sourceX, sourceY, &color, &alpha);
             
-            uint8_t ditherColor = 0;
+            bool drawPixel = true;
             
-            if(librif_gfx_dither_type == RIF_DitherTypeBayer2){
-                ditherColor = RIF_bayer2[d_col][d_row];
+            if(image->hasAlpha){
+                if(alpha < 128){
+                    drawPixel = false;
+                }
             }
-            else if(librif_gfx_dither_type == RIF_DitherTypeBayer4){
-                ditherColor = RIF_bayer4[d_col][d_row];
-            }
-            else if(librif_gfx_dither_type == RIF_DitherTypeBayer8){
-                ditherColor = RIF_bayer8[d_col][d_row];
+            else if(gfx_has_blend_color && color == gfx_blend_color){
+                drawPixel = false;
             }
             
-            #ifdef PLAYDATE
-            
-            if(alpha > 127){
+            if(drawPixel){
+                uint8_t ditherColor = 0;
+                
+                if(gfx_dither_type == RIF_DitherTypeBayer2){
+                    ditherColor = RIF_bayer2[d_col][d_row];
+                }
+                else if(gfx_dither_type == RIF_DitherTypeBayer4){
+                    ditherColor = RIF_bayer4[d_col][d_row];
+                }
+                else if(gfx_dither_type == RIF_DitherTypeBayer8){
+                    ditherColor = RIF_bayer8[d_col][d_row];
+                }
+                
+                #ifdef PLAYDATE
+
                 RIF_PD_Pixel pixel = RIF_pd_pixels[lcd_rows + x1];
                 
                 if(color < ditherColor){
@@ -952,9 +976,9 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
                     // white
                     framebuffer[pixel.i] |= (1 << pixel.n);
                 }
+                
+                #endif
             }
-            
-            #endif
         }
     }
     

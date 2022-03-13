@@ -23,6 +23,8 @@ static char *kPoolClass = "librif.pool";
 
 static int graphics_init(lua_State *L);
 static int graphics_setDitherType(lua_State *L);
+static int graphics_setBlendColor(lua_State *L);
+static int graphics_clearBlendColor(lua_State *L);
 
 void librif_pd_lua_register(void){
     
@@ -33,6 +35,14 @@ void librif_pd_lua_register(void){
     }
     
     if(!RIF_pd->lua->addFunction(graphics_setDitherType, "librif.graphics.setDitherType", &err)){
+        RIF_pd->system->logToConsole("%s:%i: addFunction failed, %s", __FILE__, __LINE__, err);
+    }
+    
+    if(!RIF_pd->lua->addFunction(graphics_setBlendColor, "librif.graphics.setBlendColor", &err)){
+        RIF_pd->system->logToConsole("%s:%i: addFunction failed, %s", __FILE__, __LINE__, err);
+    }
+    
+    if(!RIF_pd->lua->addFunction(graphics_clearBlendColor, "librif.graphics.clearBlendColor", &err)){
         RIF_pd->system->logToConsole("%s:%i: addFunction failed, %s", __FILE__, __LINE__, err);
     }
     
@@ -403,6 +413,20 @@ static int graphics_setDitherType(lua_State *L) {
     
     librif_gfx_set_dither_type(type);
     
+    return 0;
+}
+
+static int graphics_setBlendColor(lua_State *L) {
+
+    int color = RIF_pd->lua->getArgInt(1);
+    librif_gfx_set_blend_color(color);
+    
+    return 0;
+}
+
+static int graphics_clearBlendColor(lua_State *L) {
+    
+    librif_gfx_clear_blend_color();
     return 0;
 }
 

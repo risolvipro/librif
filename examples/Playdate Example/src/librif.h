@@ -145,6 +145,10 @@ void librif_gfx_init(void);
 
 void librif_gfx_set_dither_type(RIF_DitherType type);
 
+void librif_gfx_set_blend_color(uint8_t color);
+void librif_gfx_clear_blend_color(void);
+
+void librif_gfx_draw_image(RIF_OpaqueImage *image, int x, int y);
 void librif_gfx_draw_image(RIF_OpaqueImage *image, int x, int y);
 void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned int width, unsigned int height);
 

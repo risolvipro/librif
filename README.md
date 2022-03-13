@@ -208,6 +208,8 @@ On Playdate, you can draw images with
 Additional methods
 
 * `graphics.setDitherType()`
+* `graphics.setBlendColor(color)` set a blend color that will be ignored in drawing. Use it to get transparency on non-alpha images.
+* `graphics.clearBlendColor()` clear the blend color
 
 Constants
 
@@ -227,12 +229,12 @@ First bytes of the file are metadata.
 
 Pixels are stored in a rows / columns layout.
 
-### If raw mode
+### In raw mode
 
 Alpha: 1 byte for alpha (uint8) and 1 byte for color (uint8). Color is skipped if alpha equals to zero\
 No alpha: 1 byte per pixel (uint8)
 
-### If compressed mode
+### In compressed mode
 
 Additional metadata.
 
