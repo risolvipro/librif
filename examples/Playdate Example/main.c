@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "pd_api.h"
-#include "librif_pd_lua.h"
+#include "librif_pd_luaglue.h"
 
 #ifdef _WINDLL
 #define DllExport __declspec(dllexport)

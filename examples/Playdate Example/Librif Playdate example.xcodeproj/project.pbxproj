@@ -8,19 +8,19 @@
 
 /* Begin PBXBuildFile section */
 		8C8C44D327DBC8870001573F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C8C44D227DBC8870001573F /* main.c */; };
-		8C8C44E527DBE6F90001573F /* librif_pd_lua.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C8C44E127DBE6F90001573F /* librif_pd_lua.c */; };
 		8C8C44E627DBE6F90001573F /* librif.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C8C44E227DBE6F90001573F /* librif.h */; };
-		8C8C44E727DBE6F90001573F /* librif_pd_lua.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C8C44E327DBE6F90001573F /* librif_pd_lua.h */; };
 		8C8C44E827DBE6F90001573F /* librif.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C8C44E427DBE6F90001573F /* librif.c */; };
+		8CD4E84827DE52DD008C8BCD /* librif_pd_luaglue.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CD4E84627DE52DD008C8BCD /* librif_pd_luaglue.c */; };
+		8CD4E84927DE52DD008C8BCD /* librif_pd_luaglue.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CD4E84727DE52DD008C8BCD /* librif_pd_luaglue.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		8C8C44CB27DBC8050001573F /* libLibrif Playdate example.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = "libLibrif Playdate example.dylib"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8C8C44D227DBC8870001573F /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
-		8C8C44E127DBE6F90001573F /* librif_pd_lua.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = librif_pd_lua.c; sourceTree = "<group>"; };
 		8C8C44E227DBE6F90001573F /* librif.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = librif.h; sourceTree = "<group>"; };
-		8C8C44E327DBE6F90001573F /* librif_pd_lua.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = librif_pd_lua.h; sourceTree = "<group>"; };
 		8C8C44E427DBE6F90001573F /* librif.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = librif.c; sourceTree = "<group>"; };
+		8CD4E84627DE52DD008C8BCD /* librif_pd_luaglue.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = librif_pd_luaglue.c; sourceTree = "<group>"; };
+		8CD4E84727DE52DD008C8BCD /* librif_pd_luaglue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = librif_pd_luaglue.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,8 +54,8 @@
 		8C8C44E027DBE6F90001573F /* src */ = {
 			isa = PBXGroup;
 			children = (
-				8C8C44E327DBE6F90001573F /* librif_pd_lua.h */,
-				8C8C44E127DBE6F90001573F /* librif_pd_lua.c */,
+				8CD4E84727DE52DD008C8BCD /* librif_pd_luaglue.h */,
+				8CD4E84627DE52DD008C8BCD /* librif_pd_luaglue.c */,
 				8C8C44E227DBE6F90001573F /* librif.h */,
 				8C8C44E427DBE6F90001573F /* librif.c */,
 			);
@@ -69,7 +69,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8C8C44E727DBE6F90001573F /* librif_pd_lua.h in Headers */,
+				8CD4E84927DE52DD008C8BCD /* librif_pd_luaglue.h in Headers */,
 				8C8C44E627DBE6F90001573F /* librif.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -173,8 +173,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8CD4E84827DE52DD008C8BCD /* librif_pd_luaglue.c in Sources */,
 				8C8C44D327DBC8870001573F /* main.c in Sources */,
-				8C8C44E527DBE6F90001573F /* librif_pd_lua.c in Sources */,
 				8C8C44E827DBE6F90001573F /* librif.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

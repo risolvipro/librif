@@ -11,7 +11,68 @@
 PlaydateAPI *RIF_pd;
 #endif
 
+#define RIF_MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define RIF_MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+#ifdef PLAYDATE
+
+#define RIF_LCD_ROWS LCD_ROWS
+#define RIF_LCD_COLUMNS LCD_COLUMNS
+
+#else
+
+#define RIF_LCD_ROWS 0
+#define RIF_LCD_COLUMNS 0
+
+#endif
+
+static bool librif_gfx_init_flag = false;
+static RIF_DitherType librif_gfx_dither_type = RIF_DitherTypeBayer4;
+
 static const size_t patternIndexInBytes = 4;
+
+#ifdef PLAYDATE
+
+typedef struct {
+    uint16_t i;
+    uint8_t n;
+} RIF_PD_Pixel;
+
+static uint8_t RIF_pd_bayer2_rows[LCD_ROWS];
+static uint8_t RIF_pd_bayer2_cols[LCD_COLUMNS];
+
+static uint8_t RIF_pd_bayer4_rows[LCD_ROWS];
+static uint8_t RIF_pd_bayer4_cols[LCD_COLUMNS];
+
+static uint8_t RIF_pd_bayer8_rows[LCD_ROWS];
+static uint8_t RIF_pd_bayer8_cols[LCD_COLUMNS];
+
+static RIF_PD_Pixel RIF_pd_pixels[LCD_ROWS * LCD_COLUMNS];
+
+#endif
+
+static const uint8_t RIF_bayer2[2][2] = {
+    {     51, 206    },
+    {    153, 102    }
+};
+
+static const uint8_t RIF_bayer4[4][4] = {
+    {     15, 195,  60, 240    },
+    {    135,  75, 180, 120    },
+    {     45, 225,  30, 210    },
+    {    165, 105, 150,  90    }
+};
+
+static const uint8_t RIF_bayer8[8][8] = {
+    {      0, 128,  32, 160,   8, 136,  40, 168    },
+    {    192,  64, 224,  96, 200,  72, 232, 104    },
+    {     48, 176,  16, 144,  56, 184,  24, 152    },
+    {    240, 112, 208,  80, 248, 120, 216,  88    },
+    {     12, 140,  44, 172,   4, 132,  36, 164    },
+    {    204,  76, 236, 108, 196,  68, 228, 100    },
+    {     60, 188,  28, 156,  52, 180,  20, 148    },
+    {    252, 124, 220,  92, 244, 116, 212,  84    }
+};
 
 uint8_t librif_byte_int1(RIF_Image *image);
 uint32_t librif_byte_int4(RIF_Image *image);
@@ -26,6 +87,11 @@ static size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha);
 
 void librif_cimage_read_patterns(RIF_CImage *image, size_t size);
 void librif_cimage_read_cells(RIF_CImage *image, size_t size);
+
+void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha);
+
+static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image);
+static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image);
 
 void* librif_malloc(size_t size);
 void* librif_calloc(size_t count, size_t size);
@@ -85,6 +151,8 @@ RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
             image->pixels = librif_malloc(numberOfPixels * sizeof(uint8_t));
         }
     }
+    
+    image->opaque = librif_opaque_from_image(image);
     
     return image;
 }
@@ -150,6 +218,32 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
     }
     
     return true;
+}
+
+void librif_image_get_pixel(RIF_Image *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha) {
+
+    if(x >= image->width || y >= image->height){
+        *color = 0;
+        if(alpha != NULL){
+            *alpha = 255;
+        }
+        return;
+    }
+
+    if(image->hasAlpha){
+        RIF_Pixel pixel = image->pixels_a[y * image->width + x];
+
+        *color = pixel.color;
+        if(alpha != NULL){
+            *alpha = pixel.alpha;
+        }
+    }
+    else {
+        *color = image->pixels[y * image->width + x];
+        if(alpha != NULL){
+            *alpha = 255;
+        }
+    }
 }
 
 RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
@@ -286,6 +380,8 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
             }
         }
     }
+
+    image->opaque = librif_opaque_from_cimage(image);
         
     return image;
 }
@@ -433,32 +529,6 @@ void librif_cimage_read_cells(RIF_CImage *image, size_t size){
     image->readBytes += chunk * patternIndexInBytes;
 }
 
-void librif_image_get_pixel(RIF_Image *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha) {
-
-	if(x >= image->width || y >= image->height){
-		*color = 0;
-        if(alpha != NULL){
-            *alpha = 255;
-        }
-		return;
-	}
-
-	if(image->hasAlpha){
-		RIF_Pixel pixel = image->pixels_a[y * image->width + x];
-
-		*color = pixel.color;
-        if(alpha != NULL){
-            *alpha = pixel.alpha;
-        }
-	}
-	else {
-        *color = image->pixels[y * image->width + x];
-        if(alpha != NULL){
-            *alpha = 255;
-        }
-	}
-}
-
 void librif_cimage_get_pixel(RIF_CImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha) {
 
 	if(x >= image->width || y >= image->height){
@@ -499,6 +569,86 @@ void librif_cimage_get_pixel(RIF_CImage *image, uint32_t x, uint32_t y, uint8_t 
 	}
 }
 
+RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
+    
+    RIF_Image *image = librif_malloc(sizeof(RIF_Image));
+    image->pool = pool;
+    
+    image->readBytes = 0;
+    image->totalBytes = 0;
+    
+    image->width = cimage->width;
+    image->height = cimage->height;
+    image->hasAlpha = cimage->hasAlpha;
+    
+    unsigned int numberOfPixels = image->width * image->height;
+    
+    if(image->hasAlpha){
+        if(pool != NULL){
+            image->pixels_a = pool->address;
+            pool->address += numberOfPixels * sizeof(RIF_Pixel);
+        }
+        else {
+            image->pixels_a = librif_malloc(numberOfPixels * sizeof(RIF_Pixel));
+        }
+    }
+    else {
+        if(pool != NULL){
+            image->pixels = pool->address;
+            pool->address += numberOfPixels * sizeof(uint8_t);
+        }
+        else {
+            image->pixels = librif_malloc(numberOfPixels * sizeof(uint8_t));
+        }
+    }
+    
+    for(uint32_t y = 0; y < image->height; y++){
+        for(uint32_t x = 0; x < image->width; x++){
+            unsigned int i = y * image->width + x;
+            
+            uint8_t color, alpha;
+            librif_cimage_get_pixel(cimage, x, y, &color, &alpha);
+            
+            if(image->hasAlpha){
+                RIF_Pixel pixel = {
+                    .color = color,
+                    .alpha = alpha
+                };
+                image->pixels_a[i] = pixel;
+            }
+            else {
+                image->pixels[i] = color;
+            }
+        }
+    }
+    
+    image->opaque = librif_opaque_from_image(image);
+    
+    return image;
+}
+
+static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image){
+    RIF_OpaqueImage *opaqueImage = librif_malloc(sizeof(RIF_OpaqueImage));
+    opaqueImage->compressed = false;
+    opaqueImage->image = image;
+    opaqueImage->width = image->width;
+    opaqueImage->height = image->height;
+    opaqueImage->hasAlpha = image->hasAlpha;
+    
+    return opaqueImage;
+}
+
+static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image){
+    RIF_OpaqueImage *opaqueImage = librif_malloc(sizeof(RIF_OpaqueImage));
+    opaqueImage->compressed = true;
+    opaqueImage->image = image;
+    opaqueImage->width = image->width;
+    opaqueImage->height = image->height;
+    opaqueImage->hasAlpha = image->hasAlpha;
+    
+    return opaqueImage;
+}
+
 size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha){
     uint32_t pixelsInPattern = patternSize * patternSize;
     
@@ -507,10 +657,6 @@ size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha){
         bytes = pixelsInPattern * 2;
     }
     return bytes;
-}
-
-size_t librifc_get_cell_size_bytes(RIF_CImage *image){
-    return 4;
 }
 
 uint8_t librif_byte_int1(RIF_Image *image){
@@ -606,16 +752,204 @@ RIF_Pool* librif_pool_new(size_t size){
     return pool;
 }
 
-void librif_pool_reset(RIF_Pool *pool) {
+void librif_pool_clear(RIF_Pool *pool) {
     pool->address = pool->startAddress;
     memset(pool->startAddress, 0, pool->size);
 }
 
 void librif_pool_free(RIF_Pool *pool) {
-    librif_pool_reset(pool);
+    librif_pool_clear(pool);
     
     librif_free(pool->startAddress);
     librif_free(pool);
+}
+
+void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha){
+    if(image->compressed){
+        librif_cimage_get_pixel((RIF_CImage*)image->image, x, y, color, alpha);
+    }
+    else {
+        librif_image_get_pixel((RIF_Image*)image->image, x, y, color, alpha);
+    }
+}
+
+// Drawing functions
+
+void librif_gfx_init(void){
+    
+    if(!librif_gfx_init_flag){
+        librif_gfx_init_flag = true;
+        
+        #ifdef PLAYDATE
+        
+        for(int y = 0; y < LCD_ROWS; y++){
+            RIF_pd_bayer2_rows[y] = y % 2;
+            RIF_pd_bayer4_rows[y] = y % 4;
+            RIF_pd_bayer8_rows[y] = y % 8;
+            
+            for(int x = 0; x < LCD_COLUMNS; x++){
+                RIF_pd_bayer2_cols[x] = x % 2;
+                RIF_pd_bayer4_cols[x] = x % 4;
+                RIF_pd_bayer8_cols[x] = x % 8;
+                
+                int i = y * LCD_COLUMNS + x;
+                
+                int block_x = x / 8;
+                int block_i = y * LCD_ROWSIZE + block_x;
+                int bit_n = (block_x + 1) * 8 - 1 - x;
+                
+                RIF_PD_Pixel pixel = {
+                    .i = block_i,
+                    .n = bit_n
+                };
+                
+                RIF_pd_pixels[i] = pixel;
+            }
+        }
+        
+        #endif
+    }
+}
+
+void librif_gfx_set_dither_type(RIF_DitherType type){
+    librif_gfx_dither_type = type;
+}
+
+void librif_gfx_draw_image(RIF_OpaqueImage *image, int x, int y) {
+    librif_gfx_init();
+    
+    librif_gfx_draw_scaled_image(image, x, y, image->width, image->height);
+}
+
+void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned int width, unsigned int height){
+    librif_gfx_init();
+    
+    bool x_scaled = false;
+    bool y_scaled = false;
+
+    float scaleX = 1;
+    float scaleY = 1;
+    
+    if(image->width != width){
+        x_scaled = true;
+        
+        scaleX = 0;
+        if(width != 0){
+            scaleX = (float)image->width / width;
+        }
+    }
+    
+    if(image->height != height){
+        y_scaled = true;
+        
+        scaleY = 0;
+        if(height != 0){
+            scaleY = (float)image->height / height;
+        }
+    }
+    
+    int ox = 0;
+    int cx = x;
+    
+    if(x < 0){
+        ox = x;
+        cx = 0;
+    }
+    
+    int oy = 0;
+    int cy = y;
+    
+    if(y < 0){
+        oy = y;
+        cy = 0;
+    }
+    
+    int cw = RIF_MIN(width - ox, RIF_LCD_COLUMNS);
+    int ch = RIF_MIN(height - oy, RIF_LCD_ROWS);
+    
+    #ifdef PLAYDATE
+    uint8_t *framebuffer = RIF_pd->graphics->getFrame();
+    #endif
+    
+    uint8_t *bayer_rows = NULL;
+    uint8_t *bayer_cols = NULL;
+    
+    #ifdef PLAYDATE
+    bayer_rows = RIF_pd_bayer4_rows;
+    
+    if(librif_gfx_dither_type == RIF_DitherTypeBayer2){
+        bayer_rows = RIF_pd_bayer2_rows;
+    }
+    else if(librif_gfx_dither_type == RIF_DitherTypeBayer8){
+        bayer_rows = RIF_pd_bayer8_rows;
+    }
+    #endif
+    
+    #ifdef PLAYDATE
+    bayer_cols = RIF_pd_bayer4_cols;
+    
+    if(librif_gfx_dither_type == RIF_DitherTypeBayer2){
+        bayer_cols = RIF_pd_bayer2_cols;
+    }
+    else if(librif_gfx_dither_type == RIF_DitherTypeBayer8){
+        bayer_cols = RIF_pd_bayer8_cols;
+    }
+    #endif
+    
+    for(unsigned int y1 = cy; y1 < ch; y1++){
+        uint8_t d_row = bayer_rows[y1];
+        unsigned int lcd_rows = y1 * RIF_LCD_COLUMNS;
+        
+        uint32_t sourceY = y1 - oy;
+        if(y_scaled){
+            sourceY = roundf(sourceY * scaleY);
+        }
+        
+        for(unsigned int x1 = cx; x1 < cw; x1++){
+            uint8_t d_col = bayer_cols[x1];
+            
+            uint32_t sourceX = x1 - ox;
+            if(x_scaled){
+                sourceX = roundf(sourceX * scaleX);
+            }
+            
+            uint8_t color, alpha;
+            librif_opaque_get_pixel(image, sourceX, sourceY, &color, &alpha);
+            
+            uint8_t ditherColor = 0;
+            
+            if(librif_gfx_dither_type == RIF_DitherTypeBayer2){
+                ditherColor = RIF_bayer2[d_col][d_row];
+            }
+            else if(librif_gfx_dither_type == RIF_DitherTypeBayer4){
+                ditherColor = RIF_bayer4[d_col][d_row];
+            }
+            else if(librif_gfx_dither_type == RIF_DitherTypeBayer8){
+                ditherColor = RIF_bayer8[d_col][d_row];
+            }
+            
+            #ifdef PLAYDATE
+            
+            if(alpha > 127){
+                RIF_PD_Pixel pixel = RIF_pd_pixels[lcd_rows + x1];
+                
+                if(color < ditherColor){
+                    // black
+                    framebuffer[pixel.i] &= ~(1 << pixel.n);
+                }
+                else {
+                    // white
+                    framebuffer[pixel.i] |= (1 << pixel.n);
+                }
+            }
+            
+            #endif
+        }
+    }
+    
+    #ifdef PLAYDATE
+    RIF_pd->graphics->markUpdatedRows(cy, cy + ch);
+    #endif
 }
 
 #ifdef PLAYDATE

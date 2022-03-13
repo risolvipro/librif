@@ -13,6 +13,7 @@ Librif stores images in raw binary data (default setting) or in a compressed for
 - [C Library](#c-library)
 - [Pool](#pool)
 - [Lua for Playdate](#lua-for-playdate)
+- [Graphics on Playdate](#graphics-on-playdate)
 - [Format specification](#format-specification)
 
 ## Setup
@@ -39,14 +40,14 @@ The Python encoder supports the following commands:
 ## Sample image
 
 <p>
-<img src="images/track.png?raw=true" width="300">
+<img src="images/track-1024.png?raw=true" width="300">
 </p>
 
 1024 x 1024px
 
 Raw image (grayscale) | PNG (RGB) | RIF compressed (grayscale)
 |---|---|---|
-| 1 MB | 18 KB (98.2%) | 77 KB (92.3%) |
+| 1 MB | 34 KB (96.6%) | 77 KB (92.3%) |
 
 ## Playdate support
 
@@ -130,8 +131,8 @@ RIF_Pool *pool = librif_pool_new(1000 * 1000);
 // open an image passing pool as 2nd argument
 RIF_Image *image = librif_image_open("image.rif", pool);
 
-// reset pool restoring original start address
-librif_pool_reset(pool);
+// clear pool restoring original start address
+librif_pool_clear(pool);
 
 // free pool later
 librif_pool_free(pool);
@@ -139,11 +140,11 @@ librif_pool_free(pool);
 
 ## Lua for Playdate
 
-### Setup
+### C Setup
 
 ```c
 // include librif and lua support
-#include "librif_pd_lua.h"
+#include "librif_pd_luaglue.h"
 
 // set PlaydateAPI
 RIF_pd = pd
@@ -152,9 +153,20 @@ RIF_pd = pd
 librif_pd_lua_register();
 ```
 
+### Lua setup
+
+```lua
+import "librif_pd"
+
+-- init graphics (recommended)
+-- graphics has a lazy loading mechanism, you may want to call it manually
+-- calling graphics.init() is not required if you don't use graphics
+librif.graphics.init()
+```
+
 In Lua there are two image objects `librif.image` and `librif.cimage` that share the same methods.
 
-* `image:open(filename)` to open an image
+* `image:open(filename, [pool])` to open an image
 * `image:read(size)` to read the image, returns a tuple `(success, closed)`
 * `image:hasAlpha()`
 * `image:getWidth()`
@@ -162,25 +174,46 @@ In Lua there are two image objects `librif.image` and `librif.cimage` that share
 * `image:getReadBytes()`
 * `image:getTotalBytes()`
 
+`librif.cimage` object
+
+* `cimage:decompress([pool])` decompress a cimage returning an image object
+
 `librif.pool` object
 
 * `pool:new(size)`
-* `pool:reset()`
+* `pool:clear()`
 * `pool:release()`
 
 You should call `pool:release()` to let Lua Garbage Collector release the object.
 
 Example
 ```lua
-local image = librif.cimage.open("image.rif")
+local image = librif.image.open("image.rif")
 
 while true do
-    local success, closed = image:read(10 * 1000)
+    local success, closed = image:read(1000)
     if closed then
         break
     end
 end
 ```
+
+## Graphics on Playdate
+
+On Playdate, you can draw images with
+
+* `image:draw(x, y)`
+* `image:drawScaled(x, y, width, height)`
+
+Additional methods
+
+* `graphics.setDitherType()`
+
+Constants
+
+* `graphics.kDitherTypeBayer2`
+* `graphics.kDitherTypeBayer4`
+* `graphics.kDitherTypeBayer8`
 
 ## Format specification
 

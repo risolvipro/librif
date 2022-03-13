@@ -1,5 +1,5 @@
 //
-//  librif_pd_lua.h
+//  librif_pd_luaglue.h
 //  Librif Playdate example
 //
 //  Created by Matteo D'Ignazio on 11/03/22.

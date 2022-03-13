@@ -1,16 +1,18 @@
 import "CoreLibs/crank"
-import "pattern4"
+import "librif_pd"
 
 local gfx = playdate.graphics
 local display = playdate.display
 
--- 500 KB pool
-local pool = librif.pool.new(500 * 1000)
-local image = librif.cimage.open("track-compressed.rif", pool)
+librif.graphics.init()
+
+-- 100 KB pool
+local pool = librif.pool.new(100 * 1000)
+local image = librif.cimage.open("track-512-compressed.rif", pool)
 
 local scale = 1
 local minScale = display:getWidth() / image:getWidth()
-local maxScale = 6
+local maxScale = 8
 
 local offset = {
     x = 0,
@@ -44,7 +46,7 @@ function playdate.update()
         local success, closed = image:read(1000)
         if closed then
             imageLoaded = true
-            display.setRefreshRate(15)
+            display.setRefreshRate(30)
         end
     else
         -- save old state
@@ -75,11 +77,11 @@ function playdate.update()
         scale = math_min(maxScale, scale)
         scale = math_max(minScale, scale)
 
-        local oldScaledWidth = image:getWidth() * oldScale
-        local oldScaledHeight = image:getHeight() * oldScale
+        local oldScaledWidth = round(image:getWidth() * oldScale)
+        local oldScaledHeight = round(image:getHeight() * oldScale)
 
-        local scaledWidth = image:getWidth() * scale
-        local scaledHeight = image:getHeight() * scale
+        local scaledWidth = round(image:getWidth() * scale)
+        local scaledHeight = round(image:getHeight() * scale)
 
         -- center zoom
 
@@ -106,39 +108,8 @@ function playdate.update()
         end
 
         if needsDisplay then
-            local visibleWidth = math_min(scaledWidth, display.getWidth())
-            local visibleHeight = math_min(scaledHeight, display.getHeight())
-
-            local x, y
-            local scaledX, scaledY
-            local d_col, d_row
-            local color, alpha
-
-            local relY
-            for relY = 0, visibleHeight do
-                y = relY
-                
-                d_row = y % 4
-                scaledY = round((relY + offset.y) / scale)
-
-                local relX
-                for relX = 0, visibleWidth do
-                    x = relX
-                    scaledX = round((relX + offset.x) / scale)
-                    
-                    color, alpha = image:getPixel(scaledX, scaledY)
-
-                    d_col = x % 4
-
-                    ditherColor = kWhite
-                    if (color < pattern4[d_col][d_row]) then
-                        ditherColor = kBlack
-                    end
-
-                    gfx.setColor(ditherColor)
-                    gfx.drawPixel(x, y)
-                end
-            end
+            
+            image:drawScaled(-offset.x, -offset.y, scaledWidth, scaledHeight)
         end
     end
 

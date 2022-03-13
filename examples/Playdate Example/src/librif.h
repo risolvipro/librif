@@ -51,6 +51,18 @@ typedef struct {
 } RIF_Pool;
 
 typedef struct {
+    void *image;
+    
+    bool compressed;
+    
+    bool hasAlpha;
+    
+    uint32_t width;
+    uint32_t height;
+} RIF_OpaqueImage;
+
+typedef struct {
+    RIF_OpaqueImage *opaque;
     RIF_Pool *pool;
     
     bool hasAlpha;
@@ -72,6 +84,7 @@ typedef struct {
 } RIF_Image;
 
 typedef struct {
+    RIF_OpaqueImage *opaque;
     RIF_Pool *pool;
     
     bool hasAlpha;
@@ -106,7 +119,7 @@ typedef struct {
 } RIF_CImage;
 
 RIF_Pool* librif_pool_new(size_t size);
-void librif_pool_reset(RIF_Pool *pool);
+void librif_pool_clear(RIF_Pool *pool);
 void librif_pool_free(RIF_Pool *pool);
 
 RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool);
@@ -117,6 +130,22 @@ void librif_image_free(RIF_Image *image);
 RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool);
 bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed);
 void librif_cimage_get_pixel(RIF_CImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha);
+RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool);
 void librif_cimage_free(RIF_CImage *image);
+
+// Graphics
+
+typedef enum {
+    RIF_DitherTypeBayer2,
+    RIF_DitherTypeBayer4,
+    RIF_DitherTypeBayer8
+} RIF_DitherType;
+
+void librif_gfx_init(void);
+
+void librif_gfx_set_dither_type(RIF_DitherType type);
+
+void librif_gfx_draw_image(RIF_OpaqueImage *image, int x, int y);
+void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned int width, unsigned int height);
 
 #endif /* librif_h */

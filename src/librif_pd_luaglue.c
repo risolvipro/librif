@@ -1,11 +1,11 @@
 //
-//  librif_pd_lua.c
+//  librif_pd_luaglue.c
 //  Librif Playdate example
 //
 //  Created by Matteo D'Ignazio on 11/03/22.
 //
 
-#include "librif_pd_lua.h"
+#include "librif_pd_luaglue.h"
 
 static void* getObject(int n, char* type);
 
@@ -21,9 +21,20 @@ static char *kImageClass = "librif.image";
 static char *kCImageClass = "librif.cimage";
 static char *kPoolClass = "librif.pool";
 
+static int graphics_init(lua_State *L);
+static int graphics_setDitherType(lua_State *L);
+
 void librif_pd_lua_register(void){
     
     const char *err;
+    
+    if(!RIF_pd->lua->addFunction(graphics_init, "librif.graphics.init", &err)){
+        RIF_pd->system->logToConsole("%s:%i: addFunction failed, %s", __FILE__, __LINE__, err);
+    }
+    
+    if(!RIF_pd->lua->addFunction(graphics_setDitherType, "librif.graphics.setDitherType", &err)){
+        RIF_pd->system->logToConsole("%s:%i: addFunction failed, %s", __FILE__, __LINE__, err);
+    }
     
     if(!RIF_pd->lua->registerClass(kImageClass, librif_image, NULL, 0, &err)){
         RIF_pd->system->logToConsole("%s:%i: registerClass failed, %s", __FILE__, __LINE__, err);
@@ -50,9 +61,9 @@ static int pool_new(lua_State *L){
     return 1;
 }
 
-static int pool_reset(lua_State *L){
+static int pool_clear(lua_State *L){
     RIF_Pool *pool = getPool(1);
-    librif_pool_reset(pool);
+    librif_pool_clear(pool);
     
     return 0;
 }
@@ -78,7 +89,7 @@ static int pool_gc(lua_State *L){
 static const lua_reg librif_pool[] = {
     { "__gc", pool_gc },
     { "new", pool_new },
-    { "reset", pool_reset },
+    { "clear", pool_clear },
     { "release", pool_release },
     { NULL, NULL }
 };
@@ -88,6 +99,10 @@ static int image_open(lua_State *L){
     
     RIF_Pool *pool = NULL;
     
+    void *poolArg = RIF_pd->lua->getArgObject(2, kPoolClass, NULL);
+    if(poolArg != NULL){
+        pool = poolArg;
+    }
     
     RIF_Image *image = librif_image_open(filename, pool);
     
@@ -171,6 +186,31 @@ static int image_gc(lua_State *L){
     return 0;
 }
 
+static int image_draw(lua_State *L){
+    RIF_Image *image = getImage(1);
+    
+    int x = RIF_pd->lua->getArgInt(2);
+    int y = RIF_pd->lua->getArgInt(3);
+    
+    librif_gfx_draw_image(image->opaque, x, y);
+    
+    return 0;
+}
+
+static int image_draw_scaled(lua_State *L){
+    RIF_Image *image = getImage(1);
+    
+    int x = RIF_pd->lua->getArgInt(2);
+    int y = RIF_pd->lua->getArgInt(3);
+    
+    int width = RIF_pd->lua->getArgInt(4);
+    int height = RIF_pd->lua->getArgInt(5);
+    
+    librif_gfx_draw_scaled_image(image->opaque, x, y, width, height);
+    
+    return 0;
+}
+
 static const lua_reg librif_image[] = {
     { "__gc", image_gc },
     { "open", image_open },
@@ -181,6 +221,9 @@ static const lua_reg librif_image[] = {
     { "getPixel", image_getPixel },
     { "getReadBytes", image_getReadBytes },
     { "getTotalBytes", image_getTotalBytes },
+    // drawing
+    { "draw", image_draw },
+    { "drawScaled", image_draw_scaled },
     { NULL, NULL }
 };
 
@@ -272,7 +315,49 @@ static int cimage_getPixel(lua_State *L){
     
     return 2;
 }
+    
+static int cimage_decompress(lua_State *L){
+    RIF_CImage *cimage = getCImage(1);
 
+    RIF_Pool *pool = NULL;
+    
+    void *poolArg = RIF_pd->lua->getArgObject(2, kPoolClass, NULL);
+    if(poolArg != NULL){
+        pool = poolArg;
+    }
+    
+    RIF_Image *image = librif_cimage_decompress(cimage, pool);
+    
+    RIF_pd->lua->pushObject(image, kImageClass, 0);
+    
+    return 1;
+}
+    
+static int cimage_draw(lua_State *L){
+    RIF_CImage *image = getCImage(1);
+    
+    int x = RIF_pd->lua->getArgInt(2);
+    int y = RIF_pd->lua->getArgInt(3);
+    
+    librif_gfx_draw_image(image->opaque, x, y);
+    
+    return 0;
+}
+
+static int cimage_draw_scaled(lua_State *L){
+    RIF_CImage *image = getCImage(1);
+    
+    int x = RIF_pd->lua->getArgFloat(2);
+    int y = RIF_pd->lua->getArgFloat(3);
+    
+    unsigned int width = RIF_pd->lua->getArgFloat(4);
+    unsigned int height = RIF_pd->lua->getArgFloat(5);
+    
+    librif_gfx_draw_scaled_image(image->opaque, x, y, width, height);
+    
+    return 0;
+}
+    
 static int cimage_gc(lua_State *L){
     RIF_CImage *image = getCImage(0);
     librif_cimage_free(image);
@@ -290,8 +375,36 @@ static const lua_reg librif_cimage[] = {
     { "getPixel", cimage_getPixel },
     { "getReadBytes", cimage_getReadBytes },
     { "getTotalBytes", cimage_getTotalBytes },
+    { "decompress", cimage_decompress },
+    // drawing
+    { "draw", cimage_draw },
+    { "drawScaled", cimage_draw_scaled },
     { NULL, NULL }
 };
+
+static int graphics_init(lua_State *L) {
+    
+    librif_gfx_init();
+    
+    return 0;
+}
+
+static int graphics_setDitherType(lua_State *L) {
+    int typeInt = RIF_pd->lua->getArgInt(1);
+    
+    RIF_DitherType type = RIF_DitherTypeBayer4;
+    
+    if(typeInt == 0){
+        type = RIF_DitherTypeBayer2;
+    }
+    else if(typeInt == 2){
+        type = RIF_DitherTypeBayer8;
+    }
+    
+    librif_gfx_set_dither_type(type);
+    
+    return 0;
+}
 
 static void* getObject(int n, char* type){
     void *object = RIF_pd->lua->getArgObject(n, type, NULL);
