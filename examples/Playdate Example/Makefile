@@ -17,7 +17,7 @@ VPATH += src
 # List C source files here
 SRC += main.c
 SRC += src/librif.c
-SRC += src/librif_pd_luaglue.c
+SRC += src/librif_luaglue.c
 
 ASRC = setup.s
 

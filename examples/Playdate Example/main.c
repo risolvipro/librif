@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "pd_api.h"
-#include "librif_pd_luaglue.h"
+#include "librif_luaglue.h"
 
 #ifdef _WINDLL
 #define DllExport __declspec(dllexport)
@@ -22,7 +22,7 @@ DllExport int eventHandler(PlaydateAPI* playdate, PDSystemEvent event, uint32_t 
     if(event == kEventInitLua){
         RIF_pd = playdate;
         
-        librif_pd_lua_register();
+        librif_lua_register();
     }
 	
 	return 0;

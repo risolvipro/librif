@@ -1,11 +1,11 @@
 //
-//  librif_pd_luaglue.c
+//  librif_luaglue.c
 //  Librif Playdate example
 //
 //  Created by Matteo D'Ignazio on 11/03/22.
 //
 
-#include "librif_pd_luaglue.h"
+#include "librif_luaglue.h"
 
 static void* getObject(int n, char* type);
 
@@ -26,7 +26,7 @@ static int graphics_setDitherType(lua_State *L);
 static int graphics_setBlendColor(lua_State *L);
 static int graphics_clearBlendColor(lua_State *L);
 
-void librif_pd_lua_register(void){
+void librif_lua_register(void){
     
     const char *err;
     

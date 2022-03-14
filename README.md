@@ -60,7 +60,7 @@ Supporting Playdate:
 SRC += librif.c
 
 # lua support
-SRC += src/librif_pd_luaglue.c
+SRC += src/librif_luaglue.c
 
 UDEFS = -DPLAYDATE=1
 
@@ -154,19 +154,19 @@ librif_pool_free(pool);
 
 ```c
 // include librif and lua support
-#include "librif_pd_luaglue.h"
+#include "librif_luaglue.h"
 
 // set PlaydateAPI
 RIF_pd = pd
 
 // register lua classes
-librif_pd_lua_register();
+librif_lua_register();
 ```
 
 ### Lua setup
 
 ```lua
-import "librif_pd"
+import "librif"
 
 -- init graphics (recommended)
 -- graphics has a lazy loading mechanism, you may want to call it manually

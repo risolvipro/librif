@@ -1,5 +1,5 @@
 import "CoreLibs/crank"
-import "librif_pd"
+import "librif"
 
 local gfx = playdate.graphics
 local display = playdate.display
