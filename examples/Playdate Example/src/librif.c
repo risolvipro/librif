@@ -434,16 +434,16 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
 
 void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
     
-    uint32_t pixelsInPattern = image->patternSize * image->patternSize;
+    uint32_t numberOfPixels = image->patternSize * image->patternSize;
     
-    size_t patternBytes = pixelsInPattern * 1;
+    size_t patternInBytes = numberOfPixels;
     if(image->hasAlpha){
-        patternBytes = pixelsInPattern * 2;
+        patternInBytes = numberOfPixels * 2;
     }
     
     uint32_t chunk = image->numberOfPatterns;
     if(size > 0){
-        chunk = (float)size / patternBytes;
+        chunk = (float)size / patternInBytes;
     }
     
     if(chunk == 0){
@@ -460,7 +460,7 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
         if(image->hasAlpha){
             RIF_Pattern_A *pattern_a = image->patterns_a[i];
 
-            for(uint32_t j = 0; j < pixelsInPattern; j++){
+            for(uint32_t j = 0; j < numberOfPixels; j++){
                 uint8_t alpha = librifc_byte_int1(image);
 
                 uint8_t color = 0;
@@ -480,7 +480,7 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
             void *buffer = pattern->pixels;
             
             #ifdef PLAYDATE
-            RIF_pd->file->read(image->pd_file, buffer, pixelsInPattern);
+            RIF_pd->file->read(image->pd_file, buffer, numberOfPixels);
             #else
             fread(buffer, 1, pixelsInPattern, image->stream);
             #endif
@@ -495,7 +495,7 @@ void librif_cimage_read_cells(RIF_CImage *image, size_t size){
         
     uint32_t chunk = image->numberOfCells;
     if(size > 0){
-        chunk = floorf((float)size / patternIndexInBytes);
+        chunk = (float)size / patternIndexInBytes;
     }
     
     if(chunk == 0){
@@ -811,7 +811,7 @@ void librif_gfx_init(void){
                 
                 int block_x = x / 8;
                 int block_i = y * LCD_ROWSIZE + block_x;
-                int bit_n = (block_x + 1) * 8 - 1 - x;
+                int bit_n = 7 - x % 8;
                 
                 RIF_PD_Pixel pixel = {
                     .i = block_i,

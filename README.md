@@ -99,7 +99,7 @@ if(image != NULL){
 
     while(1){
         bool closed;
-        bool success = librif_image_read(image, (50 * 1000), &closed);
+        bool success = librif_image_read(image, (10 * 1000), &closed);
         if(!success || closed){
             break;
         }
@@ -201,8 +201,8 @@ Example
 local image = librif.image.open("image.rif")
 
 while true do
-    local success, closed = image:read(1000)
-    if closed then
+    local success, closed = image:read(10 * 1000)
+    if (not success) or closed then
         break
     end
 end

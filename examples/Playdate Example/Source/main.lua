@@ -42,8 +42,8 @@ display.setRefreshRate(0)
 function playdate.update()
 
     if (not imageLoaded) then
-        -- read image in chunks of 1000 bytes
-        local success, closed = image:read(1000)
+        -- read image in chunks of 10 KB
+        local success, closed = image:read(10 * 1000)
         if closed then
             imageLoaded = true
             display.setRefreshRate(30)
