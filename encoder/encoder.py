@@ -193,13 +193,18 @@ for input_file in input_files:
                         found_index = find_pattern(pattern, patterns)
 
                         if found_index < 0:
+
+                            # count pattern bytes
                             if alpha_channel:
-                                memory_sum += s * s * 1
-                                memory_sum += color_count * 1
+                                memory_sum += s * s
+                                memory_sum += color_count
                             else:
-                                memory_sum += s * s * 1
+                                memory_sum += s * s
 
                             patterns.append(pattern)
+
+                        # count cell bytes
+                        memory_sum += 4
 
                         if min_memory_set and memory_sum > min_memory[1]:
                             save_memory = False
