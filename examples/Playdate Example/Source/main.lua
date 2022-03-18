@@ -101,9 +101,9 @@ function playdate.update()
         if firstChange then
             needsDisplay = true
             firstChange = false
-        elseif ((not (oldOffset.x == offset.x)) or (not (oldOffset.y == offset.y))) then
+        elseif (oldOffset.x ~= offset.x or oldOffset.y ~= offset.y) then
             needsDisplay = true
-        elseif (not (oldScale == scale)) then
+        elseif (oldScale ~= scale) then
             needsDisplay = true
         end
 

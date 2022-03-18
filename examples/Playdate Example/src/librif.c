@@ -34,21 +34,22 @@ static bool gfx_has_blend_color = false;
 
 static const size_t patternIndexInBytes = 4;
 
+static uint8_t RIF_bayer2_rows[RIF_LCD_ROWS];
+static uint8_t RIF_bayer2_cols[RIF_LCD_COLUMNS];
+
+static uint8_t RIF_bayer4_rows[RIF_LCD_ROWS];
+static uint8_t RIF_bayer4_cols[RIF_LCD_COLUMNS];
+
+static uint8_t RIF_bayer8_rows[RIF_LCD_ROWS];
+static uint8_t RIF_bayer8_cols[RIF_LCD_COLUMNS];
+
 #ifdef PLAYDATE
 
 typedef struct {
     uint16_t i;
-    uint8_t n;
+    uint8_t black_mask;
+    uint8_t white_mask;
 } RIF_PD_Pixel;
-
-static uint8_t RIF_pd_bayer2_rows[LCD_ROWS];
-static uint8_t RIF_pd_bayer2_cols[LCD_COLUMNS];
-
-static uint8_t RIF_pd_bayer4_rows[LCD_ROWS];
-static uint8_t RIF_pd_bayer4_cols[LCD_COLUMNS];
-
-static uint8_t RIF_pd_bayer8_rows[LCD_ROWS];
-static uint8_t RIF_pd_bayer8_cols[LCD_COLUMNS];
 
 static RIF_PD_Pixel RIF_pd_pixels[LCD_ROWS * LCD_COLUMNS];
 
@@ -791,19 +792,19 @@ void librif_gfx_init(void){
     if(!gfx_init_flag){
         gfx_init_flag = true;
         
-        #ifdef PLAYDATE
-        
         for(int y = 0; y < LCD_ROWS; y++){
-            RIF_pd_bayer2_rows[y] = y % 2;
-            RIF_pd_bayer4_rows[y] = y % 4;
-            RIF_pd_bayer8_rows[y] = y % 8;
+            RIF_bayer2_rows[y] = y % 2;
+            RIF_bayer4_rows[y] = y % 4;
+            RIF_bayer8_rows[y] = y % 8;
         }
         
         for(int x = 0; x < LCD_COLUMNS; x++){
-            RIF_pd_bayer2_cols[x] = x % 2;
-            RIF_pd_bayer4_cols[x] = x % 4;
-            RIF_pd_bayer8_cols[x] = x % 8;
+            RIF_bayer2_cols[x] = x % 2;
+            RIF_bayer4_cols[x] = x % 4;
+            RIF_bayer8_cols[x] = x % 8;
         }
+        
+        #ifdef PLAYDATE
         
         for(int y = 0; y < LCD_ROWS; y++){
             for(int x = 0; x < LCD_COLUMNS; x++){
@@ -811,11 +812,15 @@ void librif_gfx_init(void){
                 
                 int block_x = x / 8;
                 int block_i = y * LCD_ROWSIZE + block_x;
-                int bit_n = 7 - x % 8;
+                int n = 7 - x % 8;
+                
+                uint8_t black_mask = ~(1 << n);
+                uint8_t white_mask = (1 << n);
                 
                 RIF_PD_Pixel pixel = {
                     .i = block_i,
-                    .n = bit_n
+                    .black_mask = black_mask,
+                    .white_mask = white_mask
                 };
                 
                 RIF_pd_pixels[i] = pixel;
@@ -896,30 +901,23 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
     uint8_t *framebuffer = RIF_pd->graphics->getFrame();
     #endif
     
-    uint8_t *bayer_rows = NULL;
-    uint8_t *bayer_cols = NULL;
-    
-    #ifdef PLAYDATE
-    bayer_rows = RIF_pd_bayer4_rows;
+    uint8_t *bayer_rows = RIF_bayer4_rows;
     
     if(gfx_dither_type == RIF_DitherTypeBayer2){
-        bayer_rows = RIF_pd_bayer2_rows;
+        bayer_rows = RIF_bayer2_rows;
     }
     else if(gfx_dither_type == RIF_DitherTypeBayer8){
-        bayer_rows = RIF_pd_bayer8_rows;
+        bayer_rows = RIF_bayer8_rows;
     }
-    #endif
     
-    #ifdef PLAYDATE
-    bayer_cols = RIF_pd_bayer4_cols;
+    uint8_t *bayer_cols = RIF_bayer4_cols;
     
     if(gfx_dither_type == RIF_DitherTypeBayer2){
-        bayer_cols = RIF_pd_bayer2_cols;
+        bayer_cols = RIF_bayer2_cols;
     }
     else if(gfx_dither_type == RIF_DitherTypeBayer8){
-        bayer_cols = RIF_pd_bayer8_cols;
+        bayer_cols = RIF_bayer8_cols;
     }
-    #endif
     
     for(unsigned int y1 = cy; y1 < ch; y1++){
         uint8_t d_row = bayer_rows[y1];
@@ -974,11 +972,11 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
                 
                 if(color < ditherColor){
                     // black
-                    framebuffer[pixel.i] &= ~(1 << pixel.n);
+                    framebuffer[pixel.i] &= pixel.black_mask;
                 }
                 else {
                     // white
-                    framebuffer[pixel.i] |= (1 << pixel.n);
+                    framebuffer[pixel.i] |= pixel.white_mask;
                 }
                 
                 #endif
