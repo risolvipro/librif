@@ -46,7 +46,7 @@ static uint8_t RIF_bayer8_cols[RIF_LCD_COLUMNS];
 #ifdef PLAYDATE
 
 typedef struct {
-    uint16_t i;
+    uint32_t i;
     uint8_t black_mask;
     uint8_t white_mask;
 } RIF_PD_Pixel;
@@ -87,16 +87,16 @@ uint32_t librifc_byte_int4(RIF_CImage *image);
 uint8_t rif_int_1_buffer[1];
 uint8_t rif_int_4_buffer[4];
 
-static size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha);
+size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha);
 
 void librif_cimage_read_patterns(RIF_CImage *image, size_t size);
 void librif_cimage_read_cells(RIF_CImage *image, size_t size);
 
 void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha);
 
-static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image);
-static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image);
-static void librif_opaque_free(RIF_OpaqueImage *image);
+RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image);
+RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image);
+void librif_opaque_free(RIF_OpaqueImage *image);
 
 void* librif_malloc(size_t size);
 void* librif_calloc(size_t count, size_t size);
@@ -483,7 +483,7 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
             #ifdef PLAYDATE
             RIF_pd->file->read(image->pd_file, buffer, numberOfPixels);
             #else
-            fread(buffer, 1, pixelsInPattern, image->stream);
+            fread(buffer, 1, numberOfPixels, image->stream);
             #endif
         }
     }
@@ -632,7 +632,7 @@ RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
     return image;
 }
 
-static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image){
+RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image){
     RIF_OpaqueImage *opaqueImage = librif_malloc(sizeof(RIF_OpaqueImage));
     opaqueImage->compressed = false;
     opaqueImage->image = image;
@@ -643,7 +643,7 @@ static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image){
     return opaqueImage;
 }
 
-static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image){
+RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image){
     RIF_OpaqueImage *opaqueImage = librif_malloc(sizeof(RIF_OpaqueImage));
     opaqueImage->compressed = true;
     opaqueImage->image = image;
@@ -654,7 +654,7 @@ static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image){
     return opaqueImage;
 }
 
-static void librif_opaque_free(RIF_OpaqueImage *image){
+void librif_opaque_free(RIF_OpaqueImage *image){
     
     librif_free(image);
 }
@@ -792,13 +792,13 @@ void librif_gfx_init(void){
     if(!gfx_init_flag){
         gfx_init_flag = true;
         
-        for(int y = 0; y < LCD_ROWS; y++){
+        for(int y = 0; y < RIF_LCD_ROWS; y++){
             RIF_bayer2_rows[y] = y % 2;
             RIF_bayer4_rows[y] = y % 4;
             RIF_bayer8_rows[y] = y % 8;
         }
         
-        for(int x = 0; x < LCD_COLUMNS; x++){
+        for(int x = 0; x < RIF_LCD_COLUMNS; x++){
             RIF_bayer2_cols[x] = x % 2;
             RIF_bayer4_cols[x] = x % 4;
             RIF_bayer8_cols[x] = x % 8;
