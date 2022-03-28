@@ -46,7 +46,7 @@ static uint8_t RIF_bayer8_cols[RIF_LCD_COLUMNS];
 #ifdef PLAYDATE
 
 typedef struct {
-    uint32_t i;
+    uint16_t i;
     uint8_t black_mask;
     uint8_t white_mask;
 } RIF_PD_Pixel;
