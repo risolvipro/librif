@@ -10,7 +10,8 @@ local imageLoaded = false
 local sprite = nil
 
 local x = 0
-local acceleration = 60
+local regular_acceleration = 60
+local acceleration = regular_acceleration
 
 display.setRefreshRate(0)
 
@@ -22,7 +23,7 @@ function librif_test.update()
         if closed then
             imageLoaded = true
             display.setRefreshRate(30)
-            
+
             local bitmap = image:toBitmap()
 
             sprite = playdate.graphics.sprite.new(bitmap)
@@ -34,8 +35,10 @@ function librif_test.update()
 
         local proposed_x = x + acceleration * dt
 
-        if proposed_x < 0 or (proposed_x + sprite.width) > display.getWidth()  then
-            acceleration = - acceleration
+        if proposed_x < 0 then
+            acceleration = regular_acceleration
+        elseif (proposed_x + sprite.width) > display.getWidth() then
+            acceleration = - regular_acceleration
         end
 
         x = math.min(proposed_x, display.getWidth() - sprite.width)
