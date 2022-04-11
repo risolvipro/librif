@@ -1,3 +1,4 @@
 build/
 Source/pdex.bin
 Source/pdex.dylib
+Librif-example.pdx/*

@@ -210,10 +210,27 @@ end
 
 ## Graphics on Playdate
 
-On Playdate, you can draw images with
+Drawing
 
-* `image:draw(x, y)`
-* `image:drawScaled(x, y, width, height)`
+* `image:draw()` draw the image
+* `image:drawInto(dstImage)` draw the image into the destination image (experimental)
+
+Transform image
+
+* `image.setSize(width, height)`
+* `image.setPosition(x, y)`
+* `image.setCenter(x, y)` set the relative center. Pass a multiplier in the range of [0.0 - 1.0]
+* `image.setRotation(degrees)` set rotation in degrees
+
+Copy image
+
+* `image.copy()` returns a copy of the image
+* `image.transform()` returns the transformed image as a copy
+* `image.toBitmap()` returns a Playdate image (1-bit LCDBitmap)
+
+Clear the screen
+
+* `graphics.getDrawBounds()` returns the last drawing bounds as a tuple `x, y, width, height`. Useful to clear the screen in the next cycle. You should call it after `image:draw()`
 
 Additional methods
 

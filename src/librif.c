@@ -21,16 +21,58 @@ PlaydateAPI *RIF_pd;
 
 #else
 
-#define RIF_LCD_ROWS 0
-#define RIF_LCD_COLUMNS 0
+#define RIF_LCD_ROWS 100
+#define RIF_LCD_COLUMNS 100
 
 #endif
+
+typedef struct {
+    int x;
+    int y;
+} RIF_Point;
+
+typedef enum {
+    RIF_GFX_ContextTypeLCD,
+    RIF_GFX_ContextTypeBitmap,
+    RIF_GFX_ContextTypeImage
+} RIF_GFX_ContextType;
+
+typedef struct {
+    RIF_GFX_ContextType type;
+    RIF_Image *dstImage;
+    #ifdef PLAYDATE
+    uint8_t *pd_framebuffer;
+    #endif
+    int cols;
+    int rows;
+} RIF_GFX_Context;
+
+typedef struct {
+    bool rotated;
+    bool x_scaled, y_scaled;
+    float scaleX, scaleY;
+    int width, height;
+    int x, y;
+    float centerX, centerY;
+    float rotation;
+    float centerX_multiplier, centerY_multiplier;
+} RIF_GFX_Transform;
+
+typedef struct {
+    int min_x;
+    int max_x;
+    int min_y;
+    int max_y;
+    bool min_set;
+} RIF_DrawBounds;
 
 static bool gfx_init_flag = false;
 static RIF_DitherType gfx_dither_type = RIF_DitherTypeBayer4;
 
 static uint8_t gfx_blend_color = 0;
 static bool gfx_has_blend_color = false;
+
+static RIF_DrawBounds gfx_draw_bounds;
 
 static const size_t patternIndexInBytes = 4;
 
@@ -42,6 +84,8 @@ static uint8_t RIF_bayer4_cols[RIF_LCD_COLUMNS];
 
 static uint8_t RIF_bayer8_rows[RIF_LCD_ROWS];
 static uint8_t RIF_bayer8_cols[RIF_LCD_COLUMNS];
+
+typedef uint8_t(*RIF_GFX_ditherFunction)(uint8_t col, uint8_t row);
 
 #ifdef PLAYDATE
 
@@ -78,32 +122,86 @@ static const uint8_t RIF_bayer8[8][8] = {
     {    252, 124, 220,  92, 244, 116, 212,  84    }
 };
 
-uint8_t librif_byte_int1(RIF_Image *image);
-uint32_t librif_byte_int4(RIF_Image *image);
+static uint8_t RIF_bayer2_function(uint8_t col, uint8_t row){
+    return RIF_bayer2[col][row];
+}
 
-uint8_t librifc_byte_int1(RIF_CImage *image);
-uint32_t librifc_byte_int4(RIF_CImage *image);
+static uint8_t RIF_bayer4_function(uint8_t col, uint8_t row){
+    return RIF_bayer4[col][row];
+}
 
-uint8_t rif_int_1_buffer[1];
-uint8_t rif_int_4_buffer[4];
+static uint8_t RIF_bayer8_function(uint8_t col, uint8_t row){
+    return RIF_bayer8[col][row];
+}
 
-size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha);
+static uint8_t librif_byte_int1(RIF_Image *image);
+static uint32_t librif_byte_int4(RIF_Image *image);
 
-void librif_cimage_read_patterns(RIF_CImage *image, size_t size);
-void librif_cimage_read_cells(RIF_CImage *image, size_t size);
+static uint8_t librifc_byte_int1(RIF_CImage *image);
+static uint32_t librifc_byte_int4(RIF_CImage *image);
 
-void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha);
+static uint8_t rif_int_1_buffer[1];
+static uint8_t rif_int_4_buffer[4];
 
-RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image);
-RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image);
-void librif_opaque_free(RIF_OpaqueImage *image);
+static RIF_Image* librif_image_base(void);
 
-void* librif_malloc(size_t size);
-void* librif_calloc(size_t count, size_t size);
-void librif_free(void* ptr);
+static size_t get_pattern_size_in_bytes(unsigned int patternSize, bool alpha);
+
+static void librif_cimage_read_patterns(RIF_CImage *image, size_t size);
+static void librif_cimage_read_cells(RIF_CImage *image, size_t size);
+
+void librif_opaque_get_pixel(RIF_OpaqueImage *image, int x, int y, uint8_t *color, uint8_t *alpha);
+
+static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image);
+static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image);
+static void librif_opaque_free(RIF_OpaqueImage *image);
+
+static void* librif_malloc(size_t size);
+static void librif_free(void* ptr);
+
+static void librif_gfx_begin_draw(void);
+static void librif_gfx_end_draw(void);
+
+static RIF_GFX_Context librif_gfx_context_new(RIF_GFX_ContextType type);
+static void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *context);
+
+void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int i, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction);
+
+static RIF_Rect librif_gfx_get_transform_rect(RIF_GFX_Transform *transform);
+static RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image);
+
+void librif_gfx_draw_image_to_bitmap(RIF_OpaqueImage *image, int width, int height);
+
+static RIF_DrawBounds RIF_DrawBounds_new(void);
+
+RIF_Image* librif_image_base(void){
+
+    RIF_Image *image = librif_malloc(sizeof(RIF_Image));
+    
+    image->pool = NULL;
+    
+    image->width = 0;
+    image->height = 0;
+    
+    image->readBytes = 0;
+    image->totalBytes = 0;
+    
+    image->hasAlpha = false;
+    
+    image->pixels = NULL;
+    image->pixels_a = NULL;
+    
+    #ifdef PLAYDATE
+    image->pd_file = NULL;
+    #else
+    image->stream = NULL;
+    #endif
+    
+    return image;
+}
 
 RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
-    RIF_Image *image = librif_malloc(sizeof(RIF_Image));
+    RIF_Image *image = librif_image_base();
     image->pool = pool;
     
     bool isNull = false;
@@ -133,7 +231,7 @@ RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
     image->width = librif_byte_int4(image);
     image->height = librif_byte_int4(image);
 
-    unsigned int numberOfPixels = image->width * image->height;
+    size_t numberOfPixels = image->width * image->height;
     
     image->totalBytes = numberOfPixels * sizeof(uint8_t);
     image->readBytes = 0;
@@ -190,12 +288,11 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
             if(alpha != 0){
                 color = librif_byte_int1(image);
             }
-
-            RIF_Pixel pixel_a = {
+            
+            image->pixels_a[i] = (RIF_Pixel){
                 .color = color,
                 .alpha = alpha
             };
-            image->pixels_a[i] = pixel_a;
         }
     }
     else {
@@ -217,17 +314,91 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
                 
         #ifdef PLAYDATE
         RIF_pd->file->close(image->pd_file);
+        image->pd_file = NULL;
         #else
         fclose(image->stream);
+        image->stream = NULL;
         #endif
     }
     
     return true;
 }
 
-void librif_image_get_pixel(RIF_Image *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha) {
+RIF_Image* librif_image_new(int width, int height){
+    
+    RIF_Image *image = librif_image_base();
+    
+    image->hasAlpha = true;
+    
+    image->width = width;
+    image->height = height;
+    
+    size_t numberOfPixels = image->width * image->height;
+    image->pixels_a = librif_malloc(numberOfPixels * sizeof(RIF_Pixel));
+    
+    for(int i = 0; i < numberOfPixels; i++){
+        image->pixels_a[i] = (RIF_Pixel){
+            .color = 0,
+            .alpha = 0
+        };
+    }
+    
+    image->opaque = librif_opaque_from_image(image);
+    
+    return image;
+}
 
-    if(x >= image->width || y >= image->height){
+RIF_Image* librif_image_copy(RIF_Image *image){
+    
+    RIF_Image *copied = librif_image_base();
+    
+    copied->hasAlpha = image->hasAlpha;
+    
+    copied->width = image->width;
+    copied->height = image->height;
+
+    size_t numberOfPixels = copied->width * copied->height;
+    
+    if(image->hasAlpha){
+        size_t size = numberOfPixels * sizeof(RIF_Pixel);
+        copied->pixels_a = librif_malloc(size);
+        memcpy(copied->pixels_a, image->pixels_a, size);
+    }
+    else {
+        size_t size = numberOfPixels * sizeof(uint8_t);
+        copied->pixels = librif_malloc(size);
+        memcpy(copied->pixels, image->pixels, size);
+    }
+    
+    copied->opaque = librif_opaque_from_image(copied);
+    
+    return copied;
+}
+
+RIF_Image* librif_image_transform(RIF_OpaqueImage *source){
+    
+    RIF_GFX_Transform transform = librif_get_transform(source);
+    RIF_Rect rect = librif_gfx_get_transform_rect(&transform);
+    
+    // save position
+    int x = source->x;
+    int y = source->y;
+    
+    librif_opaque_set_position(source, roundf(rect.width * source->centerX_multiplier), roundf(rect.height * source->centerY_multiplier));
+    
+    RIF_Image *image = librif_image_new(rect.width, rect.height);
+    
+    librif_gfx_draw_image_into(source, image);
+    
+    // restore position
+    librif_opaque_set_position(source, x, y);
+    
+    return image;
+}
+
+void librif_image_get_pixel(RIF_Image *image, int x, int y, uint8_t *color, uint8_t *alpha){
+
+    if(x < 0 || x >= image->width || y < 0 || y >= image->height){
         *color = 0;
         if(alpha != NULL){
             *alpha = 255;
@@ -247,6 +418,22 @@ void librif_image_get_pixel(RIF_Image *image, uint32_t x, uint32_t y, uint8_t *c
         *color = image->pixels[y * image->width + x];
         if(alpha != NULL){
             *alpha = 255;
+        }
+    }
+}
+
+void librif_image_set_pixel(RIF_Image *image, int x, int y, uint8_t color, uint8_t alpha){
+    if(x >= 0 && x < image->width && y >= 0 && y < image->height){
+        unsigned int i = y * image->width + x;
+        
+        if(image->hasAlpha){
+            image->pixels_a[i] = (RIF_Pixel){
+                .color = color,
+                .alpha = alpha
+            };
+        }
+        else {
+            image->pixels[i] = color;
         }
     }
 }
@@ -288,10 +475,10 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
     image->cellCols = cx;
     image->cellRows = cy;
 
-    uint32_t patternSize = librifc_byte_int4(image);
+    unsigned int patternSize = librifc_byte_int4(image);
     image->patternSize = patternSize;
 
-    uint32_t numberOfCells = cx * cy;
+    unsigned int numberOfCells = cx * cy;
     image->numberOfCells = numberOfCells;
 
     uint32_t numberOfPatterns = librifc_byte_int4(image);
@@ -327,7 +514,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
             
             pool->address += numberOfPatterns * sizeof(RIF_Pattern_A*);
 
-            for(uint32_t i = 0; i < numberOfPatterns; i++){
+            for(int i = 0; i < numberOfPatterns; i++){
                 void *patternPtr = pool->address;
                 pool->address += sizeof(RIF_Pattern_A);
                 
@@ -342,7 +529,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
             }
         }
         else {
-            for(uint32_t i = 0; i < numberOfPatterns; i++){
+            for(int i = 0; i < numberOfPatterns; i++){
                 RIF_Pattern_A *pattern_a = librif_malloc(sizeof(RIF_Pattern_A));
                 pattern_a->pixels = librif_malloc(pixelsSizeInBytes);
                 image->patterns_a[i] = pattern_a;
@@ -360,7 +547,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
             
             pool->address += numberOfPatterns * sizeof(RIF_Pattern*);
 
-            for(uint32_t i = 0; i < numberOfPatterns; i++){
+            for(int i = 0; i < numberOfPatterns; i++){
                 void *patternPtr = pool->address;
                 pool->address += sizeof(RIF_Pattern);
                 
@@ -378,7 +565,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
             image->cells = librif_malloc(numberOfCells * sizeof(RIF_Cell));
             image->patterns = librif_malloc(numberOfPatterns * sizeof(RIF_Pattern*));
             
-            for(uint32_t i = 0; i < numberOfPatterns; i++){
+            for(int i = 0; i < numberOfPatterns; i++){
                 RIF_Pattern *pattern = librif_malloc(sizeof(RIF_Pattern));
                 pattern->pixels = librif_malloc(pixelsSizeInBytes);
                 image->patterns[i] = pattern;
@@ -425,8 +612,10 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
         
         #ifdef PLAYDATE
         RIF_pd->file->close(image->pd_file);
+        image->pd_file = NULL;
         #else
         fclose(image->stream);
+        image->stream = NULL;
         #endif
     }
     
@@ -435,14 +624,14 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
 
 void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
     
-    uint32_t numberOfPixels = image->patternSize * image->patternSize;
+    int numberOfPixels = image->patternSize * image->patternSize;
     
     size_t patternInBytes = numberOfPixels;
     if(image->hasAlpha){
         patternInBytes = numberOfPixels * 2;
     }
     
-    uint32_t chunk = image->numberOfPatterns;
+    int chunk = image->numberOfPatterns;
     if(size > 0){
         chunk = (float)size / patternInBytes;
     }
@@ -461,19 +650,18 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
         if(image->hasAlpha){
             RIF_Pattern_A *pattern_a = image->patterns_a[i];
 
-            for(uint32_t j = 0; j < numberOfPixels; j++){
+            for(int j = 0; j < numberOfPixels; j++){
                 uint8_t alpha = librifc_byte_int1(image);
 
                 uint8_t color = 0;
                 if(alpha != 0){
                     color = librifc_byte_int1(image);
                 }
-
-                RIF_Pixel pixel = {
+                
+                pattern_a->pixels[j] = (RIF_Pixel){
                     .color = color,
                     .alpha = alpha
                 };
-                pattern_a->pixels[j] = pixel;
             }
         }
         else {
@@ -494,7 +682,7 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
 
 void librif_cimage_read_cells(RIF_CImage *image, size_t size){
         
-    uint32_t chunk = image->numberOfCells;
+    int chunk = image->numberOfCells;
     if(size > 0){
         chunk = (float)size / patternIndexInBytes;
     }
@@ -507,9 +695,9 @@ void librif_cimage_read_cells(RIF_CImage *image, size_t size){
         chunk = image->numberOfCells - image->cellsRead;
     }
         
-    uint32_t endRead = image->cellsRead + chunk;
+    int endRead = image->cellsRead + chunk;
     
-    for(uint32_t i = image->cellsRead; i < endRead; i++){
+    for(int i = image->cellsRead; i < endRead; i++){
         uint32_t patternIndex = librifc_byte_int4(image);
         
         if(image->hasAlpha){
@@ -534,9 +722,9 @@ void librif_cimage_read_cells(RIF_CImage *image, size_t size){
     image->readBytes += chunk * patternIndexInBytes;
 }
 
-void librif_cimage_get_pixel(RIF_CImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha) {
+void librif_cimage_get_pixel(RIF_CImage *image, int x, int y, uint8_t *color, uint8_t *alpha) {
 
-	if(x >= image->width || y >= image->height){
+	if(x < 0 || x >= image->width || y < 0 || y >= image->height){
 		*color = 0;
         if(alpha != NULL){
             *alpha = 255;
@@ -544,16 +732,16 @@ void librif_cimage_get_pixel(RIF_CImage *image, uint32_t x, uint32_t y, uint8_t 
 		return;
 	}
 
-	uint32_t patternSize = image->patternSize;
+	int patternSize = image->patternSize;
 
-	uint32_t cellCol = x / patternSize;
-	uint32_t cellRow = y / patternSize;
+    int cellCol = x / patternSize;
+    int cellRow = y / patternSize;
 
-	uint32_t patternX = x - cellCol * patternSize;
-	uint32_t patternY = y - cellRow * patternSize;
+    int patternX = x - cellCol * patternSize;
+    int patternY = y - cellRow * patternSize;
 
-	uint32_t cell_i = cellRow * image->cellCols + cellCol;
-	uint32_t pixel_i = patternY * patternSize + patternX;
+    int cell_i = cellRow * image->cellCols + cellCol;
+    int pixel_i = patternY * patternSize + patternX;
 
 	if(image->hasAlpha){
 		RIF_Cell_A cell_a = image->cells_a[cell_i];
@@ -576,7 +764,7 @@ void librif_cimage_get_pixel(RIF_CImage *image, uint32_t x, uint32_t y, uint8_t 
 
 RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
     
-    RIF_Image *image = librif_malloc(sizeof(RIF_Image));
+    RIF_Image *image = librif_image_base();
     image->pool = pool;
     
     image->readBytes = 0;
@@ -586,7 +774,7 @@ RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
     image->height = cimage->height;
     image->hasAlpha = cimage->hasAlpha;
     
-    unsigned int numberOfPixels = image->width * image->height;
+    size_t numberOfPixels = image->width * image->height;
     
     if(image->hasAlpha){
         if(pool != NULL){
@@ -607,19 +795,18 @@ RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
         }
     }
     
-    for(uint32_t y = 0; y < image->height; y++){
-        for(uint32_t x = 0; x < image->width; x++){
-            unsigned int i = y * image->width + x;
+    for(int y = 0; y < image->height; y++){
+        for(int x = 0; x < image->width; x++){
+            int i = y * image->width + x;
             
             uint8_t color, alpha;
             librif_cimage_get_pixel(cimage, x, y, &color, &alpha);
             
             if(image->hasAlpha){
-                RIF_Pixel pixel = {
+                image->pixels_a[i] = (RIF_Pixel){
                     .color = color,
                     .alpha = alpha
                 };
-                image->pixels_a[i] = pixel;
             }
             else {
                 image->pixels[i] = color;
@@ -632,8 +819,30 @@ RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
     return image;
 }
 
-RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image){
+RIF_OpaqueImage* librif_opaque_new(void){
     RIF_OpaqueImage *opaqueImage = librif_malloc(sizeof(RIF_OpaqueImage));
+    
+    librif_opaque_reset_transform(opaqueImage);
+    
+    return opaqueImage;
+}
+
+void librif_opaque_reset_transform(RIF_OpaqueImage *image){
+    image->rotation = 0;
+    
+    image->size_width = -1;
+    image->size_height = -1;
+    
+    image->x = 0;
+    image->y = 0;
+
+    image->centerX_multiplier = 0;
+    image->centerY_multiplier = 0;
+}
+
+RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image){
+    RIF_OpaqueImage *opaqueImage = librif_opaque_new();
+    
     opaqueImage->compressed = false;
     opaqueImage->image = image;
     opaqueImage->width = image->width;
@@ -644,7 +853,8 @@ RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image){
 }
 
 RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image){
-    RIF_OpaqueImage *opaqueImage = librif_malloc(sizeof(RIF_OpaqueImage));
+    RIF_OpaqueImage *opaqueImage = librif_opaque_new();
+    
     opaqueImage->compressed = true;
     opaqueImage->image = image;
     opaqueImage->width = image->width;
@@ -654,13 +864,33 @@ RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image){
     return opaqueImage;
 }
 
+void librif_opaque_set_position(RIF_OpaqueImage *image, int x, int y){
+    image->x = x;
+    image->y = y;
+}
+
+void librif_opaque_set_rotation(RIF_OpaqueImage *image, float angle){
+    image->rotation = angle;
+}
+
+void librif_opaque_set_size(RIF_OpaqueImage *image, int width, int height){
+    image->size_width = width;
+    image->size_height = height;
+}
+
+void librif_opaque_set_center(RIF_OpaqueImage *image, float x_multiplier, float y_multiplier){
+    
+    image->centerX_multiplier = x_multiplier;
+    image->centerY_multiplier = y_multiplier;
+}
+
 void librif_opaque_free(RIF_OpaqueImage *image){
     
     librif_free(image);
 }
 
-size_t get_pattern_size_in_bytes(uint32_t patternSize, bool alpha){
-    uint32_t pixelsInPattern = patternSize * patternSize;
+size_t get_pattern_size_in_bytes(unsigned int patternSize, bool alpha){
+    int pixelsInPattern = patternSize * patternSize;
     
     size_t bytes = pixelsInPattern;
     if(alpha){
@@ -776,7 +1006,7 @@ void librif_pool_free(RIF_Pool *pool) {
     librif_free(pool);
 }
 
-void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uint8_t *color, uint8_t *alpha){
+void librif_opaque_get_pixel(RIF_OpaqueImage *image, int x, int y, uint8_t *color, uint8_t *alpha){
     if(image->compressed){
         librif_cimage_get_pixel((RIF_CImage*)image->image, x, y, color, alpha);
     }
@@ -785,6 +1015,32 @@ void librif_opaque_get_pixel(RIF_OpaqueImage *image, uint32_t x, uint32_t y, uin
     }
 }
 
+#ifdef PLAYDATE
+LCDBitmap* librif_opaque_image_to_bitmap(RIF_OpaqueImage *image){
+    
+    RIF_GFX_Transform transform = librif_get_transform(image);
+    RIF_Rect rect = librif_gfx_get_transform_rect(&transform);
+    
+    // save position
+    int x = image->x;
+    int y = image->y;
+    
+    librif_opaque_set_position(image, roundf(rect.width * image->centerX_multiplier), roundf(rect.height * image->centerY_multiplier));
+    
+    LCDBitmap *bitmap = RIF_pd->graphics->newBitmap(rect.width, rect.height, kColorClear);
+    RIF_pd->graphics->pushContext(bitmap);
+    
+    librif_gfx_draw_image_to_bitmap(image, rect.width, rect.height);
+    
+    RIF_pd->graphics->popContext();
+    
+    // restore position
+    librif_opaque_set_position(image, x, y);
+    
+    return bitmap;
+}
+#endif
+
 // Drawing functions
 
 void librif_gfx_init(void){
@@ -792,6 +1048,8 @@ void librif_gfx_init(void){
     if(!gfx_init_flag){
         gfx_init_flag = true;
         
+        gfx_draw_bounds = RIF_DrawBounds_new();
+
         for(int y = 0; y < RIF_LCD_ROWS; y++){
             RIF_bayer2_rows[y] = y % 2;
             RIF_bayer4_rows[y] = y % 4;
@@ -831,6 +1089,26 @@ void librif_gfx_init(void){
     }
 }
 
+void librif_gfx_begin_draw(void){
+    gfx_draw_bounds = RIF_DrawBounds_new();
+}
+
+void librif_gfx_end_draw(void){
+    
+    #ifdef PLAYDATE
+    RIF_pd->graphics->markUpdatedRows(gfx_draw_bounds.min_y, gfx_draw_bounds.max_y);
+    #endif
+}
+
+RIF_Rect librif_gfx_get_draw_bounds(void){
+    return (RIF_Rect){
+        .x = gfx_draw_bounds.min_x,
+        .y = gfx_draw_bounds.min_y,
+        .width = abs(gfx_draw_bounds.max_x + 1 - gfx_draw_bounds.min_x),
+        .height = abs(gfx_draw_bounds.max_y + 1 - gfx_draw_bounds.min_y),
+    };
+}
+
 void librif_gfx_set_dither_type(RIF_DitherType type){
     gfx_dither_type = type;
 }
@@ -845,14 +1123,24 @@ void librif_gfx_clear_blend_color(void){
     gfx_blend_color = 0;
 }
 
-void librif_gfx_draw_image(RIF_OpaqueImage *image, int x, int y) {
-    librif_gfx_init();
+RIF_GFX_Context librif_gfx_context_new(RIF_GFX_ContextType type) {
+    RIF_GFX_Context context = {
+        .type = type,
+        .dstImage = NULL,
+        .cols = 0,
+        .rows = 0
+    };
     
-    librif_gfx_draw_scaled_image(image, x, y, image->width, image->height);
+    #ifdef PLAYDATE
+    context.pd_framebuffer = NULL;
+    #endif
+    
+    return context;
 }
 
-void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned int width, unsigned int height){
-    librif_gfx_init();
+RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image){
+    
+    bool rotated = (image->rotation != 0);
     
     bool x_scaled = false;
     bool y_scaled = false;
@@ -860,46 +1148,76 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
     float scaleX = 1;
     float scaleY = 1;
     
-    if(image->width != width){
+    int width = image->width;
+    int height = image->height;
+    
+    if(image->size_width > 0 && image->width != image->size_width){
+        width = image->size_width;
         x_scaled = true;
-        
-        scaleX = 0;
-        if(width != 0){
-            scaleX = (float)image->width / width;
-        }
+        scaleX = (float)image->width / image->size_width;
     }
     
-    if(image->height != height){
+    if(image->size_height > 0 && image->height != image->size_height){
+        height = image->size_height;
         y_scaled = true;
-        
-        scaleY = 0;
-        if(height != 0){
-            scaleY = (float)image->height / height;
-        }
+        scaleY = (float)image->height / image->size_height;
     }
     
-    int ox = 0;
-    int cx = x;
+    float centerX = (float)width * image->centerX_multiplier;
+    float centerY = (float)height * image->centerY_multiplier;
     
-    if(x < 0){
-        ox = x;
-        cx = 0;
-    }
+    return (RIF_GFX_Transform){
+        .rotated = rotated,
+        .width = width,
+        .height = height,
+        .x = image->x,
+        .y = image->y,
+        .x_scaled = x_scaled,
+        .y_scaled = y_scaled,
+        .scaleX = scaleX,
+        .scaleY = scaleY,
+        .centerX_multiplier = image->centerX_multiplier,
+        .centerY_multiplier = image->centerY_multiplier,
+        .centerX = centerX,
+        .centerY = centerY,
+        .rotation = image->rotation
+    };
+}
+
+void librif_gfx_draw_image(RIF_OpaqueImage *image){
     
-    int oy = 0;
-    int cy = y;
+    RIF_GFX_Context context = librif_gfx_context_new(RIF_GFX_ContextTypeLCD);
+    context.pd_framebuffer = RIF_pd->graphics->getFrame();
     
-    if(y < 0){
-        oy = y;
-        cy = 0;
-    }
+    context.cols = RIF_LCD_COLUMNS;
+    context.rows = RIF_LCD_ROWS;
+
+    librif_gfx_draw_image_context(image, &context);
+}
+
+void librif_gfx_draw_image_into(RIF_OpaqueImage *image, RIF_Image *dstImage){
     
-    int cw = RIF_MIN(width - ox, RIF_LCD_COLUMNS);
-    int ch = RIF_MIN(height - oy, RIF_LCD_ROWS);
+    RIF_GFX_Context context = librif_gfx_context_new(RIF_GFX_ContextTypeImage);
+    context.dstImage = dstImage;
     
-    #ifdef PLAYDATE
-    uint8_t *framebuffer = RIF_pd->graphics->getFrame();
-    #endif
+    context.cols = dstImage->width;
+    context.rows = dstImage->height;
+
+    librif_gfx_draw_image_context(image, &context);
+}
+
+void librif_gfx_draw_image_to_bitmap(RIF_OpaqueImage *image, int width, int height){
+    
+    RIF_GFX_Context context = librif_gfx_context_new(RIF_GFX_ContextTypeBitmap);
+    
+    context.cols = width;
+    context.rows = height;
+
+    librif_gfx_draw_image_context(image, &context);
+}
+
+void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *context){
+    librif_gfx_init();
     
     uint8_t *bayer_rows = RIF_bayer4_rows;
     
@@ -919,84 +1237,285 @@ void librif_gfx_draw_scaled_image(RIF_OpaqueImage *image, int x, int y, unsigned
         bayer_cols = RIF_bayer8_cols;
     }
     
-    for(unsigned int y1 = cy; y1 < ch; y1++){
-        uint8_t d_row = bayer_rows[y1];
-        
-        #ifdef PLAYDATE
-        unsigned int lcd_rows = y1 * RIF_LCD_COLUMNS;
-        #endif
-        
-        uint32_t sourceY = y1 - oy;
-        if(y_scaled){
-            sourceY = roundf(sourceY * scaleY);
-        }
-        
-        for(unsigned int x1 = cx; x1 < cw; x1++){
-            uint8_t d_col = bayer_cols[x1];
-            
-            uint32_t sourceX = x1 - ox;
-            if(x_scaled){
-                sourceX = roundf(sourceX * scaleX);
-            }
-            
-            uint8_t color, alpha;
-            librif_opaque_get_pixel(image, sourceX, sourceY, &color, &alpha);
-            
-            bool drawPixel = true;
-            
-            if(image->hasAlpha){
-                if(alpha < 128){
-                    drawPixel = false;
-                }
-            }
-            else if(gfx_has_blend_color && color == gfx_blend_color){
-                drawPixel = false;
-            }
-            
-            if(drawPixel){
-                uint8_t ditherColor = 0;
-                
-                if(gfx_dither_type == RIF_DitherTypeBayer2){
-                    ditherColor = RIF_bayer2[d_col][d_row];
-                }
-                else if(gfx_dither_type == RIF_DitherTypeBayer4){
-                    ditherColor = RIF_bayer4[d_col][d_row];
-                }
-                else if(gfx_dither_type == RIF_DitherTypeBayer8){
-                    ditherColor = RIF_bayer8[d_col][d_row];
-                }
-                
-                #ifdef PLAYDATE
+    RIF_GFX_ditherFunction ditherFunction = &RIF_bayer4_function;
+    
+    if(gfx_dither_type == RIF_DitherTypeBayer2){
+        ditherFunction = &RIF_bayer2_function;
+    }
+    else if(gfx_dither_type == RIF_DitherTypeBayer8){
+        ditherFunction = &RIF_bayer8_function;
+    }
+    
+    RIF_GFX_Transform transform = librif_get_transform(image);
+    RIF_Rect rect = librif_gfx_get_transform_rect(&transform);
 
-                RIF_PD_Pixel pixel = RIF_pd_pixels[lcd_rows + x1];
+    int offsetX = 0;
+    int absoluteStartX = rect.x;
+    int startX = absoluteStartX;
+    
+    if(absoluteStartX < 0){
+        startX = 0;
+        offsetX = - absoluteStartX;
+    }
+    
+    int offsetY = 0;
+    int absoluteStartY = rect.y;
+    int startY = absoluteStartY;
+    
+    if(absoluteStartY < 0){
+        startY = 0;
+        offsetY = - absoluteStartY;
+    }
+    
+    int endX = RIF_MIN(absoluteStartX + offsetX + rect.width, context->cols);
+    int endY = RIF_MIN(absoluteStartY + offsetY + rect.height, context->rows);
+    
+    int cols = endX - startX;
+    int rows = endY - startY;
+    
+    if(context->type == RIF_GFX_ContextTypeLCD){
+        librif_gfx_begin_draw();
+    }
+    
+    if(transform.rotated){
+        
+        float rotation_sin = sinf( - transform.rotation * (M_PI / 180));
+        float rotation_cos = cosf( - transform.rotation * (M_PI / 180));
+
+        float d_x = (image->x - transform.centerX) - rect.x - offsetX;
+        float d_y = (image->y - transform.centerY) - rect.y - offsetY;
+        
+        for(int y1 = 0; y1 < rows; y1++){
+            int absoluteY = startY + y1;
+            
+            float y_c = y1 - d_y - transform.centerY;
+            
+            float y_sin = y_c * rotation_sin;
+            float y_cos = y_c * rotation_cos;
+            
+            for(int x1 = 0; x1 < cols; x1++){
+                int absoluteX = startX + x1;
                 
-                if(color < ditherColor){
-                    // black
-                    framebuffer[pixel.i] &= pixel.black_mask;
+                float x_c = x1 - d_x - transform.centerX;
+                
+                int imageX = roundf((x_c * rotation_cos - y_sin + transform.centerX) * transform.scaleX);
+                int imageY = roundf((x_c * rotation_sin + y_cos + transform.centerY) * transform.scaleY);
+                
+                if(imageX >= 0 && imageX < image->width && imageY >= 0 && imageY < image->height){
+                    uint8_t color, alpha;
+                    librif_opaque_get_pixel(image, imageX, imageY, &color, &alpha);
+                    
+                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, (absoluteY * context->cols + absoluteX), bayer_cols[absoluteX], bayer_rows[absoluteY], ditherFunction);
                 }
-                else {
-                    // white
-                    framebuffer[pixel.i] |= pixel.white_mask;
+            }
+        }
+    }
+    else {
+        
+        for(int y1 = 0; y1 < rows; y1++){
+            int absoluteY = startY + y1;
+            
+            uint8_t d_row = bayer_rows[absoluteY];
+            int buffer_rows = absoluteY * context->cols;
+            
+            int imageY = offsetY + y1;
+            if(transform.y_scaled){
+                imageY = roundf(imageY * transform.scaleY);
+            }
+            
+            for(int x1 = 0; x1 < cols; x1++){
+                int absoluteX = startX + x1;
+                
+                uint8_t d_col = bayer_cols[absoluteX];
+                
+                int imageX = offsetX + x1;
+                if(transform.x_scaled){
+                    imageX = roundf(imageX * transform.scaleX);
                 }
                 
-                #endif
+                if(imageX >= 0 && imageX < image->width && imageY >= 0 && imageY < image->height){
+                    uint8_t color, alpha;
+                    librif_opaque_get_pixel(image, imageX, imageY, &color, &alpha);
+                    
+                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, (buffer_rows + absoluteX), d_col, d_row, ditherFunction);
+                }
             }
         }
     }
     
-    #ifdef PLAYDATE
-    RIF_pd->graphics->markUpdatedRows(cy, cy + ch);
-    #endif
+    if(context->type == RIF_GFX_ContextTypeLCD){
+        librif_gfx_end_draw();
+    }
+}
+
+void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int i, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction){
+    
+    if(alpha == 0){
+        return;
+    }
+    
+    bool drawPixel = true;
+    
+    if(opaqueImage->hasAlpha){
+        if(alpha < 128){
+            drawPixel = false;
+        }
+    }
+    else if(gfx_has_blend_color && color == gfx_blend_color){
+        drawPixel = false;
+    }
+    
+    if(drawPixel){
+        uint8_t ditherColor = ditherFunction(d_col, d_row);
+        
+        if(!gfx_draw_bounds.min_set){
+            gfx_draw_bounds.min_set = true;
+            
+            gfx_draw_bounds.min_x = x;
+            gfx_draw_bounds.max_x = x;
+            gfx_draw_bounds.min_y = y;
+            gfx_draw_bounds.max_y = y;
+        }
+        
+        gfx_draw_bounds.min_x = RIF_MIN(gfx_draw_bounds.min_x, x);
+        gfx_draw_bounds.max_x = RIF_MAX(gfx_draw_bounds.max_x, x);
+        
+        gfx_draw_bounds.min_y = RIF_MIN(gfx_draw_bounds.min_y, y);
+        gfx_draw_bounds.max_y = RIF_MAX(gfx_draw_bounds.max_y, y);
+        
+        if(context->type == RIF_GFX_ContextTypeLCD){
+            #ifdef PLAYDATE
+            RIF_PD_Pixel pixel = RIF_pd_pixels[i];
+            
+            if(color < ditherColor){
+                // black
+                context->pd_framebuffer[pixel.i] &= pixel.black_mask;
+            }
+            else {
+                // white
+                context->pd_framebuffer[pixel.i] |= pixel.white_mask;
+            }
+            #endif
+        }
+        else if(context->type == RIF_GFX_ContextTypeImage){
+            
+            RIF_Image *dstImage = context->dstImage;
+            
+            if(dstImage->hasAlpha){
+                RIF_Pixel *pixel = &dstImage->pixels_a[i];
+                
+                uint8_t result_color = color;
+                uint8_t result_alpha = alpha;
+                
+                if(alpha < 255){
+                    result_color = alpha * color + (1 - alpha) * pixel->color;
+                    result_alpha = pixel->alpha + alpha - pixel->alpha * alpha;
+                }
+                
+                pixel->color = result_color;
+                pixel->alpha = result_alpha;
+            }
+            else {
+                uint8_t result_color = color;
+                
+                if(alpha < 255){
+                    result_color = alpha * color + (1 - alpha) * dstImage->pixels[i];
+                }
+                
+                dstImage->pixels[i] = result_color;
+            }
+        }
+        else if(context->type == RIF_GFX_ContextTypeBitmap){
+            
+            RIF_pd->graphics->fillRect(x, y, 1, 1, (color < ditherColor) ? kColorBlack : kColorWhite);
+        }
+    }
+}
+
+RIF_Rect librif_gfx_get_transform_rect(RIF_GFX_Transform *transform){
+        
+    unsigned int n = 4;
+    RIF_Point points[n];
+    
+    points[0] = (RIF_Point){
+        .x = 0,
+        .y = 0
+    };
+    points[1] = (RIF_Point){
+        .x = transform->width,
+        .y = 0
+    };
+    points[2] = (RIF_Point){
+        .x = transform->width,
+        .y = (transform->height - 1)
+    };
+    points[3] = (RIF_Point){
+        .x = 0,
+        .y = (transform->height - 1)
+    };
+    
+    RIF_DrawBounds bounds = RIF_DrawBounds_new();
+    
+    float rotation_sin = sinf(transform->rotation * (M_PI / 180));
+    float rotation_cos = cosf(transform->rotation * (M_PI / 180));
+    
+    for(int i = 0; i < n; i++){
+        
+        int x = points[i].x;
+        int y = points[i].y;
+        
+        if(transform->rotated){
+            x = x - transform->centerX;
+            y = y - transform->centerY;
+            
+            int rotated_x = ceilf(x * rotation_cos - y * rotation_sin + transform->centerX);
+            int rotated_y = ceilf(x * rotation_sin + y * rotation_cos + transform->centerY);
+            
+            x = rotated_x;
+            y = rotated_y;
+        }
+        
+        x += transform->x - transform->centerX;
+        y += transform->y - transform->centerY;
+        
+        if(!bounds.min_set){
+            bounds.min_set = true;
+            
+            bounds.min_x = x;
+            bounds.max_x = x;
+            bounds.min_y = y;
+            bounds.max_y = y;
+        }
+        
+        bounds.min_x = fminf(bounds.min_x, x);
+        bounds.max_x = fmaxf(bounds.max_x, x);
+        
+        bounds.min_y = fminf(bounds.min_y, y);
+        bounds.max_y = fmaxf(bounds.max_y, y);
+    }
+    
+    return (RIF_Rect){
+        .x = bounds.min_x,
+        .y = bounds.min_y,
+        .width = abs(bounds.max_x - bounds.min_x),
+        .height = abs(bounds.max_y - bounds.min_y)
+    };
+}
+
+static RIF_DrawBounds RIF_DrawBounds_new(void){
+    return (RIF_DrawBounds){
+        .min_x = 0,
+        .max_x = 0,
+        .min_y = 0,
+        .max_y = 0,
+        .min_set = false
+    };
 }
 
 #ifdef PLAYDATE
 
 void* librif_malloc(size_t size) {
     return RIF_pd->system->realloc(NULL, size);
-}
-
-void* librif_calloc(size_t count, size_t size) {
-    return memset(librif_malloc(count * size), 0, count * size);
 }
 
 void librif_free(void* ptr) {
@@ -1007,10 +1526,6 @@ void librif_free(void* ptr) {
 
 void* librif_malloc(size_t size) {
     return malloc(size);
-}
-
-void* librif_calloc(size_t count, size_t size) {
-    return calloc(count, size);
 }
 
 void librif_free(void* ptr) {
