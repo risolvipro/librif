@@ -384,7 +384,7 @@ RIF_Image* librif_image_transform(RIF_OpaqueImage *source){
     int x = source->x;
     int y = source->y;
     
-    librif_opaque_set_position(source, roundf(rect.width * source->centerX_multiplier), roundf(rect.height * source->centerY_multiplier));
+    librif_opaque_set_position(source, -rect.x, -rect.y);
     
     RIF_Image *image = librif_image_new(rect.width, rect.height);
     
@@ -1025,7 +1025,7 @@ LCDBitmap* librif_opaque_image_to_bitmap(RIF_OpaqueImage *image){
     int x = image->x;
     int y = image->y;
     
-    librif_opaque_set_position(image, roundf(rect.width * image->centerX_multiplier), roundf(rect.height * image->centerY_multiplier));
+    librif_opaque_set_position(image, -rect.x, -rect.y);
     
     LCDBitmap *bitmap = RIF_pd->graphics->newBitmap(rect.width, rect.height, kColorClear);
     RIF_pd->graphics->pushContext(bitmap);
