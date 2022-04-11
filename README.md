@@ -111,7 +111,7 @@ Getting a pixel from image.
 
 ```c
 uint8_t color, alpha;
-librif_image_get_pixel(image, &color, &alpha);
+librif_image_get_pixel(image, x, y, &color, &alpha);
 ```
 
 You can also get a pixel from `pixels` to skip some security checks.
@@ -126,7 +126,7 @@ RIF_Pixel pixel = image->pixels_a[y * image->width + x]
 
 ### Notes
 
-* In `librif_image_read`, pass `0` size to read the entire file
+* `librif_image_read`, pass `0` size to read the entire file
 * Image properties: `hasAlpha`, `width`, `height`
 * Properties `readBytes` and `totalBytes` can be used to track loading, please note that they don't reflect actual bytes.
 
