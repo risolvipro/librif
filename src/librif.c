@@ -1187,7 +1187,9 @@ RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image){
 void librif_gfx_draw_image(RIF_OpaqueImage *image){
     
     RIF_GFX_Context context = librif_gfx_context_new(RIF_GFX_ContextTypeLCD);
+    #ifdef PLAYDATE
     context.pd_framebuffer = RIF_pd->graphics->getFrame();
+    #endif
     
     context.cols = RIF_LCD_COLUMNS;
     context.rows = RIF_LCD_ROWS;
@@ -1427,7 +1429,9 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
         }
         else if(context->type == RIF_GFX_ContextTypeBitmap){
             
+            #ifdef PLAYDATE
             RIF_pd->graphics->fillRect(x, y, 1, 1, (color < ditherColor) ? kColorBlack : kColorWhite);
+            #endif
         }
     }
 }
