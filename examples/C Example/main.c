@@ -21,7 +21,7 @@ void read_image(void) {
         if(success){
             // successfully read
             
-            uint32_t x = 0, y = 0;
+            int x = 0, y = 0;
             
             uint8_t color, alpha;
             librif_image_get_pixel(image, x, y, &color, &alpha);
@@ -49,7 +49,7 @@ void read_image_chunk(void) {
             }
         }
         
-        uint32_t x = 0, y = 0;
+        int x = 0, y = 0;
         
         uint8_t color, alpha;
         librif_image_get_pixel(image, x, y, &color, &alpha);
@@ -67,7 +67,7 @@ void read_cimage(void) {
         if(success){
             // successfully read
             
-            uint32_t x = 0, y = 0;
+            int x = 0, y = 0;
             
             uint8_t color, alpha;
             librif_cimage_get_pixel(image, x, y, &color, &alpha);
@@ -97,7 +97,7 @@ void read_cimage_chunk(void) {
             }
         }
         
-        uint32_t x = 0, y = 0;
+        int x = 0, y = 0;
         
         uint8_t color, alpha;
         librif_cimage_get_pixel(image, x, y, &color, &alpha);
