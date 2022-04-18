@@ -123,13 +123,12 @@ for input_file in input_files:
         alpha_channel = False
     
         im = Image.open(input_file)
-        im = im.convert('LA')
-
-        if png_output:
-            im.save(output_dir + os.sep + filename_no_ext + "_grayscale.png")
-
+        im = im.convert('RGBA')
+        
         w, h = im.size
         pixels_n = w * h
+
+        rgb_pixels = im.load()
 
         # get pixels
 
@@ -139,13 +138,27 @@ for input_file in input_files:
             pixels[y] = [() for i in range(0,w)]
 
             for x in range(0, w):
-                pixel = im.getpixel((x,y))
-                color, alpha = pixel
+                rgb_pixel = rgb_pixels[x,y]
+                r, g, b, alpha = rgb_pixel
+
+                color = round(0.2125 * r + 0.7154 * g + 0.0721 * b)
+                pixel = (color, alpha)
 
                 if not (alpha == 255):
                     alpha_channel = True
 
                 pixels[y][x] = pixel
+
+        if png_output:
+            output_filename = output_dir + os.sep + filename_no_ext + "-grayscale.png"
+            output_im = Image.new('LA', (w, h))
+            output_pixels = output_im.load()
+
+            for y in range(0, h):
+                for x in range(0, w):
+                    output_pixels[x,y] = pixels[y][x]
+
+            output_im.save(output_filename)
 
         data = bytearray()
 
