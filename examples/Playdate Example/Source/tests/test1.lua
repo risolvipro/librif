@@ -4,9 +4,7 @@ import "librif"
 local gfx = playdate.graphics
 local display = playdate.display
 
--- 100 KB pool
-local pool = librif.pool.new(100 * 1000)
-local image = librif.cimage.open("images/track-512-compressed.rif", pool)
+local image = librif.image.open("images/track-512-raw.rif")
 
 local scale = 1
 local minScale = display:getWidth() / image:getWidth()

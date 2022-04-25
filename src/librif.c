@@ -159,18 +159,19 @@ static void librif_opaque_free(RIF_OpaqueImage *image);
 static void* librif_malloc(size_t size);
 static void librif_free(void* ptr);
 
-static void librif_gfx_begin_draw(void);
-static void librif_gfx_end_draw(void);
+static void librif_gfx_begin_draw(RIF_GFX_Context *context);
+static void librif_gfx_end_draw(RIF_GFX_Context *context);
 
 static RIF_GFX_Context librif_gfx_context_new(RIF_GFX_ContextType type);
 static void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *context);
 
-void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int i, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction);
+static void librif_gfx_will_draw_pixel(RIF_OpaqueImage *opaqueImage, int x, int y);
+static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int i, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction);
 
 static RIF_Rect librif_gfx_get_transform_rect(RIF_GFX_Transform *transform);
 static RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image);
 
-void librif_gfx_draw_image_to_bitmap(RIF_OpaqueImage *image, int width, int height);
+static void librif_gfx_draw_image_to_bitmap(RIF_OpaqueImage *image, int width, int height);
 
 static RIF_DrawBounds RIF_DrawBounds_new(void);
 
@@ -469,8 +470,8 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
     image->width = librifc_byte_int4(image);
     image->height = librifc_byte_int4(image);
 
-    uint32_t cx = librifc_byte_int4(image);
-    uint32_t cy = librifc_byte_int4(image);
+    unsigned int cx = librifc_byte_int4(image);
+    unsigned int cy = librifc_byte_int4(image);
 
     image->cellCols = cx;
     image->cellRows = cy;
@@ -481,7 +482,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
     unsigned int numberOfCells = cx * cy;
     image->numberOfCells = numberOfCells;
 
-    uint32_t numberOfPatterns = librifc_byte_int4(image);
+    unsigned int numberOfPatterns = librifc_byte_int4(image);
     image->numberOfPatterns = numberOfPatterns;
 
     image->patternsRead = 0;
@@ -498,7 +499,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
     image->cells = NULL;
     image->cells_a = NULL;
     
-    uint32_t pixelsInPattern = patternSize * patternSize;
+    int pixelsInPattern = patternSize * patternSize;
 
     if(image->hasAlpha){
         image->cells_a = librif_malloc(numberOfCells * sizeof(RIF_Cell_A));
@@ -1089,15 +1090,17 @@ void librif_gfx_init(void){
     }
 }
 
-void librif_gfx_begin_draw(void){
+void librif_gfx_begin_draw(RIF_GFX_Context *context){
     gfx_draw_bounds = RIF_DrawBounds_new();
 }
 
-void librif_gfx_end_draw(void){
+void librif_gfx_end_draw(RIF_GFX_Context *context){
     
-    #ifdef PLAYDATE
-    RIF_pd->graphics->markUpdatedRows(gfx_draw_bounds.min_y, gfx_draw_bounds.max_y);
-    #endif
+    if(context->type == RIF_GFX_ContextTypeLCD){
+        #ifdef PLAYDATE
+        RIF_pd->graphics->markUpdatedRows(gfx_draw_bounds.min_y, gfx_draw_bounds.max_y);
+        #endif
+    }
 }
 
 RIF_Rect librif_gfx_get_draw_bounds(void){
@@ -1239,13 +1242,13 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
         bayer_cols = RIF_bayer8_cols;
     }
     
-    RIF_GFX_ditherFunction ditherFunction = &RIF_bayer4_function;
+    RIF_GFX_ditherFunction ditherFunction = RIF_bayer4_function;
     
     if(gfx_dither_type == RIF_DitherTypeBayer2){
-        ditherFunction = &RIF_bayer2_function;
+        ditherFunction = RIF_bayer2_function;
     }
     else if(gfx_dither_type == RIF_DitherTypeBayer8){
-        ditherFunction = &RIF_bayer8_function;
+        ditherFunction = RIF_bayer8_function;
     }
     
     RIF_GFX_Transform transform = librif_get_transform(image);
@@ -1275,20 +1278,20 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
     int cols = endX - startX;
     int rows = endY - startY;
     
-    if(context->type == RIF_GFX_ContextTypeLCD){
-        librif_gfx_begin_draw();
-    }
+    librif_gfx_begin_draw(context);
     
     if(transform.rotated){
         
-        float rotation_sin = sinf( - transform.rotation * (M_PI / 180));
-        float rotation_cos = cosf( - transform.rotation * (M_PI / 180));
+        float rotation_sin = sinf( - transform.rotation * (M_PI / 180.0f));
+        float rotation_cos = cosf( - transform.rotation * (M_PI / 180.0f));
 
         float d_x = (image->x - transform.centerX) - rect.x - offsetX;
         float d_y = (image->y - transform.centerY) - rect.y - offsetY;
         
         for(int y1 = 0; y1 < rows; y1++){
             int absoluteY = startY + y1;
+            
+            int buffer_rows = absoluteY * context->cols;
             
             float y_c = y1 - d_y - transform.centerY;
             
@@ -1307,7 +1310,7 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                     uint8_t color, alpha;
                     librif_opaque_get_pixel(image, imageX, imageY, &color, &alpha);
                     
-                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, (absoluteY * context->cols + absoluteX), bayer_cols[absoluteX], bayer_rows[absoluteY], ditherFunction);
+                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, (buffer_rows + absoluteX), bayer_cols[absoluteX], bayer_rows[absoluteY], ditherFunction);
                 }
             }
         }
@@ -1345,9 +1348,25 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
         }
     }
     
-    if(context->type == RIF_GFX_ContextTypeLCD){
-        librif_gfx_end_draw();
+    librif_gfx_end_draw(context);
+}
+
+void librif_gfx_will_draw_pixel(RIF_OpaqueImage *opaqueImage, int x, int y){
+    
+    if(!gfx_draw_bounds.min_set){
+        gfx_draw_bounds.min_set = true;
+        
+        gfx_draw_bounds.min_x = x;
+        gfx_draw_bounds.max_x = x;
+        gfx_draw_bounds.min_y = y;
+        gfx_draw_bounds.max_y = y;
     }
+    
+    gfx_draw_bounds.min_x = RIF_MIN(gfx_draw_bounds.min_x, x);
+    gfx_draw_bounds.max_x = RIF_MAX(gfx_draw_bounds.max_x, x);
+    
+    gfx_draw_bounds.min_y = RIF_MIN(gfx_draw_bounds.min_y, y);
+    gfx_draw_bounds.max_y = RIF_MAX(gfx_draw_bounds.max_y, y);
 }
 
 void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int i, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction){
@@ -1358,48 +1377,57 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
     
     bool drawPixel = true;
     
-    if(opaqueImage->hasAlpha){
-        if(alpha < 128){
-            drawPixel = false;
-        }
-    }
-    else if(gfx_has_blend_color && color == gfx_blend_color){
+    if(gfx_has_blend_color && color == gfx_blend_color){
         drawPixel = false;
     }
     
     if(drawPixel){
-        uint8_t ditherColor = ditherFunction(d_col, d_row);
         
-        if(!gfx_draw_bounds.min_set){
-            gfx_draw_bounds.min_set = true;
+        if(context->type == RIF_GFX_ContextTypeLCD || context->type == RIF_GFX_ContextTypeBitmap){
             
-            gfx_draw_bounds.min_x = x;
-            gfx_draw_bounds.max_x = x;
-            gfx_draw_bounds.min_y = y;
-            gfx_draw_bounds.max_y = y;
-        }
-        
-        gfx_draw_bounds.min_x = RIF_MIN(gfx_draw_bounds.min_x, x);
-        gfx_draw_bounds.max_x = RIF_MAX(gfx_draw_bounds.max_x, x);
-        
-        gfx_draw_bounds.min_y = RIF_MIN(gfx_draw_bounds.min_y, y);
-        gfx_draw_bounds.max_y = RIF_MAX(gfx_draw_bounds.max_y, y);
-        
-        if(context->type == RIF_GFX_ContextTypeLCD){
-            #ifdef PLAYDATE
-            RIF_PD_Pixel pixel = RIF_pd_pixels[i];
+            bool drawPixel2 = true;
             
-            if(color < ditherColor){
-                // black
-                context->pd_framebuffer[pixel.i] &= pixel.black_mask;
+            if(opaqueImage->hasAlpha){
+                if(alpha < 128){
+                    drawPixel2 = false;
+                }
             }
-            else {
-                // white
-                context->pd_framebuffer[pixel.i] |= pixel.white_mask;
+            
+            if(drawPixel2){
+                librif_gfx_will_draw_pixel(opaqueImage, x, y);
+                
+                uint8_t ditherColor = ditherFunction(d_col, d_row);
+                
+                uint8_t adjustedColor = color;
+                
+                if(opaqueImage->hasAlpha){
+                    adjustedColor = color * alpha / 255.0f;
+                }
+                
+                if(context->type == RIF_GFX_ContextTypeLCD){
+                    #ifdef PLAYDATE
+                    RIF_PD_Pixel pixel = RIF_pd_pixels[i];
+                    
+                    if(adjustedColor < ditherColor){
+                        // black
+                        context->pd_framebuffer[pixel.i] &= pixel.black_mask;
+                    }
+                    else {
+                        // white
+                        context->pd_framebuffer[pixel.i] |= pixel.white_mask;
+                    }
+                    #endif
+                }
+                else if(context->type == RIF_GFX_ContextTypeBitmap){
+                    
+                    #ifdef PLAYDATE
+                    RIF_pd->graphics->fillRect(x, y, 1, 1, (adjustedColor < ditherColor) ? kColorBlack : kColorWhite);
+                    #endif
+                }
             }
-            #endif
         }
         else if(context->type == RIF_GFX_ContextTypeImage){
+            librif_gfx_will_draw_pixel(opaqueImage, x, y);
             
             RIF_Image *dstImage = context->dstImage;
             
@@ -1410,8 +1438,9 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
                 uint8_t result_alpha = alpha;
                 
                 if(alpha < 255){
-                    result_color = alpha * color + (1 - alpha) * pixel->color;
-                    result_alpha = pixel->alpha + alpha - pixel->alpha * alpha;
+                    int alpha_inverse = 255 - (int)alpha;
+                    result_color = (alpha_inverse * pixel->color + alpha * color) / 255.0f;
+                    result_alpha = 255 - ((255 - pixel->alpha) * alpha_inverse / 255.0f);
                 }
                 
                 pixel->color = result_color;
@@ -1421,17 +1450,11 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
                 uint8_t result_color = color;
                 
                 if(alpha < 255){
-                    result_color = alpha * color + (1 - alpha) * dstImage->pixels[i];
+                    result_color = ((255 - (int)alpha) * dstImage->pixels[i] + alpha * color) / 255.0f;
                 }
                 
                 dstImage->pixels[i] = result_color;
             }
-        }
-        else if(context->type == RIF_GFX_ContextTypeBitmap){
-            
-            #ifdef PLAYDATE
-            RIF_pd->graphics->fillRect(x, y, 1, 1, (color < ditherColor) ? kColorBlack : kColorWhite);
-            #endif
         }
     }
 }
@@ -1460,8 +1483,8 @@ RIF_Rect librif_gfx_get_transform_rect(RIF_GFX_Transform *transform){
     
     RIF_DrawBounds bounds = RIF_DrawBounds_new();
     
-    float rotation_sin = sinf(transform->rotation * (M_PI / 180));
-    float rotation_cos = cosf(transform->rotation * (M_PI / 180));
+    float rotation_sin = sinf(transform->rotation * (M_PI / 180.0f));
+    float rotation_cos = cosf(transform->rotation * (M_PI / 180.0f));
     
     for(int i = 0; i < n; i++){
         
