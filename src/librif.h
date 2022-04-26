@@ -90,7 +90,7 @@ typedef struct {
 	#ifdef PLAYDATE
     SDFile *pd_file;
 	#else
-    FILE *stream;
+    FILE *file;
 	#endif
 } RIF_Image;
 
@@ -126,7 +126,7 @@ typedef struct {
 	#ifdef PLAYDATE
     SDFile *pd_file;
 	#else
-    FILE *stream;
+    FILE *file;
 	#endif
 } RIF_CImage;
 

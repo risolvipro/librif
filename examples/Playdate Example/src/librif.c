@@ -134,14 +134,14 @@ static uint8_t RIF_bayer8_function(uint8_t col, uint8_t row){
     return RIF_bayer8[col][row];
 }
 
-static uint8_t librif_byte_int1(RIF_Image *image);
-static uint32_t librif_byte_int4(RIF_Image *image);
+static uint8_t librif_read_uint8(RIF_Image *image);
+static uint32_t librif_read_uint32(RIF_Image *image);
 
-static uint8_t librifc_byte_int1(RIF_CImage *image);
-static uint32_t librifc_byte_int4(RIF_CImage *image);
+static uint8_t librifc_read_uint8(RIF_CImage *image);
+static uint32_t librifc_read_uint32(RIF_CImage *image);
 
-static uint8_t rif_int_1_buffer[1];
-static uint8_t rif_int_4_buffer[4];
+static uint8_t rif_byte_1_buffer[1];
+static uint8_t rif_byte_4_buffer[4];
 
 static RIF_Image* librif_image_base(void);
 
@@ -195,7 +195,7 @@ RIF_Image* librif_image_base(void){
     #ifdef PLAYDATE
     image->pd_file = NULL;
     #else
-    image->stream = NULL;
+    image->file = NULL;
     #endif
     
     return image;
@@ -214,9 +214,9 @@ RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
         isNull = true;
     }
     #else
-    image->stream = fopen(filename, "rb");
+    image->file = fopen(filename, "rb");
     
-    if(image->stream == NULL){
+    if(image->file == NULL){
         isNull = true;
     }
     #endif
@@ -226,11 +226,11 @@ RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
         return NULL;
     }
 
-    uint8_t alphaChannelInt = librif_byte_int1(image);
+    uint8_t alphaChannelInt = librif_read_uint8(image);
     image->hasAlpha = (alphaChannelInt == 1) ? true : false;
 
-    image->width = librif_byte_int4(image);
-    image->height = librif_byte_int4(image);
+    image->width = librif_read_uint32(image);
+    image->height = librif_read_uint32(image);
 
     size_t numberOfPixels = image->width * image->height;
     
@@ -283,11 +283,11 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
         size_t endRead = image->readBytes + chunk;
         
         for(size_t i = image->readBytes; i < endRead; i++){
-            uint8_t alpha = librif_byte_int1(image);
+            uint8_t alpha = librif_read_uint8(image);
 
             uint8_t color = 0;
             if(alpha != 0){
-                color = librif_byte_int1(image);
+                color = librif_read_uint8(image);
             }
             
             image->pixels_a[i] = (RIF_Pixel){
@@ -302,7 +302,7 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
         #ifdef PLAYDATE
         RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunk);
         #else
-        fread(buffer, 1, chunk, image->stream);
+        fread(buffer, 1, chunk, image->file);
         #endif
     }
     
@@ -317,8 +317,8 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
         RIF_pd->file->close(image->pd_file);
         image->pd_file = NULL;
         #else
-        fclose(image->stream);
-        image->stream = NULL;
+        fclose(image->file);
+        image->file = NULL;
         #endif
     }
     
@@ -452,9 +452,9 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
         isNull = true;
     }
     #else
-    image->stream = fopen(filename, "rb");
+    image->file = fopen(filename, "rb");
     
-    if(image->stream == NULL){
+    if(image->file == NULL){
         isNull = true;
     }
     #endif
@@ -464,25 +464,25 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
         return NULL;
     }
     
-    uint8_t alphaChannelInt = librifc_byte_int1(image);
+    uint8_t alphaChannelInt = librifc_read_uint8(image);
     image->hasAlpha = (alphaChannelInt == 1) ? true : false;
 
-    image->width = librifc_byte_int4(image);
-    image->height = librifc_byte_int4(image);
+    image->width = librifc_read_uint32(image);
+    image->height = librifc_read_uint32(image);
 
-    unsigned int cx = librifc_byte_int4(image);
-    unsigned int cy = librifc_byte_int4(image);
+    unsigned int cx = librifc_read_uint32(image);
+    unsigned int cy = librifc_read_uint32(image);
 
     image->cellCols = cx;
     image->cellRows = cy;
 
-    unsigned int patternSize = librifc_byte_int4(image);
+    unsigned int patternSize = librifc_read_uint32(image);
     image->patternSize = patternSize;
 
     unsigned int numberOfCells = cx * cy;
     image->numberOfCells = numberOfCells;
 
-    unsigned int numberOfPatterns = librifc_byte_int4(image);
+    unsigned int numberOfPatterns = librifc_read_uint32(image);
     image->numberOfPatterns = numberOfPatterns;
 
     image->patternsRead = 0;
@@ -615,8 +615,8 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
         RIF_pd->file->close(image->pd_file);
         image->pd_file = NULL;
         #else
-        fclose(image->stream);
-        image->stream = NULL;
+        fclose(image->file);
+        image->file = NULL;
         #endif
     }
     
@@ -652,11 +652,11 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
             RIF_Pattern_A *pattern_a = image->patterns_a[i];
 
             for(int j = 0; j < numberOfPixels; j++){
-                uint8_t alpha = librifc_byte_int1(image);
+                uint8_t alpha = librifc_read_uint8(image);
 
                 uint8_t color = 0;
                 if(alpha != 0){
-                    color = librifc_byte_int1(image);
+                    color = librifc_read_uint8(image);
                 }
                 
                 pattern_a->pixels[j] = (RIF_Pixel){
@@ -672,7 +672,7 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
             #ifdef PLAYDATE
             RIF_pd->file->read(image->pd_file, buffer, numberOfPixels);
             #else
-            fread(buffer, 1, numberOfPixels, image->stream);
+            fread(buffer, 1, numberOfPixels, image->file);
             #endif
         }
     }
@@ -699,7 +699,7 @@ void librif_cimage_read_cells(RIF_CImage *image, size_t size){
     int endRead = image->cellsRead + chunk;
     
     for(int i = image->cellsRead; i < endRead; i++){
-        uint32_t patternIndex = librifc_byte_int4(image);
+        uint32_t patternIndex = librifc_read_uint32(image);
         
         if(image->hasAlpha){
             RIF_Pattern_A *pattern_a = image->patterns_a[patternIndex];
@@ -900,40 +900,40 @@ size_t get_pattern_size_in_bytes(unsigned int patternSize, bool alpha){
     return bytes;
 }
 
-uint8_t librif_byte_int1(RIF_Image *image){
+uint8_t librif_read_uint8(RIF_Image *image){
     #ifdef PLAYDATE
-    RIF_pd->file->read(image->pd_file, rif_int_1_buffer, 1);
+    RIF_pd->file->read(image->pd_file, rif_byte_1_buffer, 1);
     #else
-    fread(rif_int_1_buffer, 1, 1, image->stream);
+    fread(rif_byte_1_buffer, 1, 1, image->file);
     #endif
-    return rif_int_1_buffer[0];
+    return rif_byte_1_buffer[0];
 }
 
-uint32_t librif_byte_int4(RIF_Image *image){
+uint32_t librif_read_uint32(RIF_Image *image){
     #ifdef PLAYDATE
-    RIF_pd->file->read(image->pd_file, rif_int_4_buffer, 4);
+    RIF_pd->file->read(image->pd_file, rif_byte_4_buffer, 4);
     #else
-    fread(rif_int_4_buffer, 4, 1, image->stream);
+    fread(rif_byte_4_buffer, 4, 1, image->file);
     #endif
-    return rif_int_4_buffer[0] << 24 | rif_int_4_buffer[1] << 16 | rif_int_4_buffer[2] << 8 | rif_int_4_buffer[3];
+    return rif_byte_4_buffer[0] << 24 | rif_byte_4_buffer[1] << 16 | rif_byte_4_buffer[2] << 8 | rif_byte_4_buffer[3];
 }
 
-uint8_t librifc_byte_int1(RIF_CImage *image){
+uint8_t librifc_read_uint8(RIF_CImage *image){
     #ifdef PLAYDATE
-    RIF_pd->file->read(image->pd_file, rif_int_1_buffer, 1);
+    RIF_pd->file->read(image->pd_file, rif_byte_1_buffer, 1);
     #else
-    fread(rif_int_1_buffer, 1, 1, image->stream);
+    fread(rif_byte_1_buffer, 1, 1, image->file);
     #endif
-    return rif_int_1_buffer[0];
+    return rif_byte_1_buffer[0];
 }
 
-uint32_t librifc_byte_int4(RIF_CImage *image){
+uint32_t librifc_read_uint32(RIF_CImage *image){
     #ifdef PLAYDATE
-    RIF_pd->file->read(image->pd_file, rif_int_4_buffer, 4);
+    RIF_pd->file->read(image->pd_file, rif_byte_4_buffer, 4);
     #else
-    fread(rif_int_4_buffer, 4, 1, image->stream);
+    fread(rif_byte_4_buffer, 4, 1, image->file);
     #endif
-    return rif_int_4_buffer[0] << 24 | rif_int_4_buffer[1] << 16 | rif_int_4_buffer[2] << 8 | rif_int_4_buffer[3];
+    return rif_byte_4_buffer[0] << 24 | rif_byte_4_buffer[1] << 16 | rif_byte_4_buffer[2] << 8 | rif_byte_4_buffer[3];
 }
 
 void librif_image_free(RIF_Image *image){
