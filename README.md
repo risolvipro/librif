@@ -51,9 +51,7 @@ Raw image (grayscale) | PNG (RGB) | RIF compressed (grayscale)
 
 ## Playdate support
 
-Supporting Playdate:
-
-* Change the Makefile as follows
+Change the Makefile as follows
 
 ```makefile
 SRC += librif.c
