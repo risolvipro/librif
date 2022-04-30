@@ -25,7 +25,7 @@ ASRC = setup.s
 UINCDIR = src
 
 # List all user C define here, like -D_DEBUG=1
-UDEFS = -DPLAYDATE=1
+UDEFS = 
 
 # Define ASM defines here
 UADEFS =
@@ -35,7 +35,5 @@ ULIBDIR =
 
 # List all user libraries here
 ULIBS =
-
-CLANGFLAGS = -DPLAYDATE=1
 
 include $(SDK)/C_API/buildsupport/common.mk

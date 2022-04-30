@@ -15,11 +15,15 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef PLAYDATE
+#ifdef TARGET_EXTENSION
+#define RIF_PLAYDATE
+#endif
+
+#ifdef RIF_PLAYDATE
 #include "pd_api.h"
 #endif
 
-#ifdef PLAYDATE
+#ifdef RIF_PLAYDATE
 extern PlaydateAPI *RIF_pd;
 #endif
 
@@ -87,7 +91,7 @@ typedef struct {
     uint8_t *pixels;
     RIF_Pixel *pixels_a;
 
-	#ifdef PLAYDATE
+	#ifdef RIF_PLAYDATE
     SDFile *pd_file;
 	#else
     FILE *file;
@@ -123,7 +127,7 @@ typedef struct {
 	RIF_Pattern **patterns;
 	RIF_Pattern_A **patterns_a;
 
-	#ifdef PLAYDATE
+	#ifdef RIF_PLAYDATE
     SDFile *pd_file;
 	#else
     FILE *file;
@@ -165,7 +169,7 @@ void librif_opaque_set_center(RIF_OpaqueImage *image, float x_multiplier, float 
 
 void librif_opaque_reset_transform(RIF_OpaqueImage *image);
 
-#ifdef PLAYDATE
+#ifdef RIF_PLAYDATE
 LCDBitmap* librif_opaque_image_to_bitmap(RIF_OpaqueImage *image);
 #endif
 

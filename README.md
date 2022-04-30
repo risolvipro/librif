@@ -61,10 +61,6 @@ SRC += librif.c
 
 # lua support
 SRC += src/librif_luaglue.c
-
-UDEFS = -DPLAYDATE=1
-
-CLANGFLAGS = -DPLAYDATE=1
 ```
 
 Sample code

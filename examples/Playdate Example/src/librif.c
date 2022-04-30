@@ -7,14 +7,14 @@
 
 #include "librif.h"
 
-#ifdef PLAYDATE
+#ifdef RIF_PLAYDATE
 PlaydateAPI *RIF_pd;
 #endif
 
 #define RIF_MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define RIF_MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-#ifdef PLAYDATE
+#ifdef RIF_PLAYDATE
 
 #define RIF_LCD_ROWS LCD_ROWS
 #define RIF_LCD_COLUMNS LCD_COLUMNS
@@ -40,7 +40,7 @@ typedef enum {
 typedef struct {
     RIF_GFX_ContextType type;
     RIF_Image *dstImage;
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     uint8_t *pd_framebuffer;
     #endif
     int cols;
@@ -87,7 +87,7 @@ static uint8_t RIF_bayer8_cols[RIF_LCD_COLUMNS];
 
 typedef uint8_t(*RIF_GFX_ditherFunction)(uint8_t col, uint8_t row);
 
-#ifdef PLAYDATE
+#ifdef RIF_PLAYDATE
 
 typedef struct {
     uint16_t i;
@@ -192,7 +192,7 @@ RIF_Image* librif_image_base(void){
     image->pixels = NULL;
     image->pixels_a = NULL;
     
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     image->pd_file = NULL;
     #else
     image->file = NULL;
@@ -207,7 +207,7 @@ RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
     
     bool isNull = false;
     
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     image->pd_file = RIF_pd->file->open(filename, kFileRead|kFileReadData);
     
     if(image->pd_file == NULL){
@@ -299,7 +299,7 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
     else {
         void *buffer = &image->pixels[image->readBytes];
         
-        #ifdef PLAYDATE
+        #ifdef RIF_PLAYDATE
         RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunk);
         #else
         fread(buffer, 1, chunk, image->file);
@@ -313,7 +313,7 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
             *closed = true;
         }
                 
-        #ifdef PLAYDATE
+        #ifdef RIF_PLAYDATE
         RIF_pd->file->close(image->pd_file);
         image->pd_file = NULL;
         #else
@@ -445,7 +445,7 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
     
     bool isNull = false;
     
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     image->pd_file = RIF_pd->file->open(filename, kFileRead|kFileReadData);
     
     if(image->pd_file == NULL){
@@ -611,7 +611,7 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
             *closed = true;
         }
         
-        #ifdef PLAYDATE
+        #ifdef RIF_PLAYDATE
         RIF_pd->file->close(image->pd_file);
         image->pd_file = NULL;
         #else
@@ -669,7 +669,7 @@ void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
             RIF_Pattern *pattern = image->patterns[i];
             void *buffer = pattern->pixels;
             
-            #ifdef PLAYDATE
+            #ifdef RIF_PLAYDATE
             RIF_pd->file->read(image->pd_file, buffer, numberOfPixels);
             #else
             fread(buffer, 1, numberOfPixels, image->file);
@@ -901,7 +901,7 @@ size_t get_pattern_size_in_bytes(unsigned int patternSize, bool alpha){
 }
 
 uint8_t librif_read_uint8(RIF_Image *image){
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     RIF_pd->file->read(image->pd_file, rif_byte_1_buffer, 1);
     #else
     fread(rif_byte_1_buffer, 1, 1, image->file);
@@ -910,7 +910,7 @@ uint8_t librif_read_uint8(RIF_Image *image){
 }
 
 uint32_t librif_read_uint32(RIF_Image *image){
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     RIF_pd->file->read(image->pd_file, rif_byte_4_buffer, 4);
     #else
     fread(rif_byte_4_buffer, 4, 1, image->file);
@@ -919,7 +919,7 @@ uint32_t librif_read_uint32(RIF_Image *image){
 }
 
 uint8_t librifc_read_uint8(RIF_CImage *image){
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     RIF_pd->file->read(image->pd_file, rif_byte_1_buffer, 1);
     #else
     fread(rif_byte_1_buffer, 1, 1, image->file);
@@ -928,7 +928,7 @@ uint8_t librifc_read_uint8(RIF_CImage *image){
 }
 
 uint32_t librifc_read_uint32(RIF_CImage *image){
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     RIF_pd->file->read(image->pd_file, rif_byte_4_buffer, 4);
     #else
     fread(rif_byte_4_buffer, 4, 1, image->file);
@@ -1016,7 +1016,7 @@ void librif_opaque_get_pixel(RIF_OpaqueImage *image, int x, int y, uint8_t *colo
     }
 }
 
-#ifdef PLAYDATE
+#ifdef RIF_PLAYDATE
 LCDBitmap* librif_opaque_image_to_bitmap(RIF_OpaqueImage *image){
     
     RIF_GFX_Transform transform = librif_get_transform(image);
@@ -1063,7 +1063,7 @@ void librif_gfx_init(void){
             RIF_bayer8_cols[x] = x % 8;
         }
         
-        #ifdef PLAYDATE
+        #ifdef RIF_PLAYDATE
         
         for(int y = 0; y < LCD_ROWS; y++){
             for(int x = 0; x < LCD_COLUMNS; x++){
@@ -1097,7 +1097,7 @@ void librif_gfx_begin_draw(RIF_GFX_Context *context){
 void librif_gfx_end_draw(RIF_GFX_Context *context){
     
     if(context->type == RIF_GFX_ContextTypeLCD){
-        #ifdef PLAYDATE
+        #ifdef RIF_PLAYDATE
         RIF_pd->graphics->markUpdatedRows(gfx_draw_bounds.min_y, gfx_draw_bounds.max_y);
         #endif
     }
@@ -1134,7 +1134,7 @@ RIF_GFX_Context librif_gfx_context_new(RIF_GFX_ContextType type) {
         .rows = 0
     };
     
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     context.pd_framebuffer = NULL;
     #endif
     
@@ -1166,8 +1166,8 @@ RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image){
         scaleY = (float)image->height / image->size_height;
     }
     
-    float centerX = (float)width * image->centerX_multiplier;
-    float centerY = (float)height * image->centerY_multiplier;
+    float centerX = width * image->centerX_multiplier;
+    float centerY = height * image->centerY_multiplier;
     
     return (RIF_GFX_Transform){
         .rotated = rotated,
@@ -1190,7 +1190,7 @@ RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image){
 void librif_gfx_draw_image(RIF_OpaqueImage *image){
     
     RIF_GFX_Context context = librif_gfx_context_new(RIF_GFX_ContextTypeLCD);
-    #ifdef PLAYDATE
+    #ifdef RIF_PLAYDATE
     context.pd_framebuffer = RIF_pd->graphics->getFrame();
     #endif
     
@@ -1282,8 +1282,8 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
     
     if(transform.rotated){
         
-        float rotation_sin = sinf( - transform.rotation * (M_PI / 180.0f));
-        float rotation_cos = cosf( - transform.rotation * (M_PI / 180.0f));
+        float rotation_sin = sinf( - transform.rotation * ((float)M_PI / 180.0f));
+        float rotation_cos = cosf( - transform.rotation * ((float)M_PI / 180.0f));
 
         float d_x = (image->x - transform.centerX) - rect.x - offsetX;
         float d_y = (image->y - transform.centerY) - rect.y - offsetY;
@@ -1405,7 +1405,7 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
                 }
                 
                 if(context->type == RIF_GFX_ContextTypeLCD){
-                    #ifdef PLAYDATE
+                    #ifdef RIF_PLAYDATE
                     RIF_PD_Pixel pixel = RIF_pd_pixels[i];
                     
                     if(adjustedColor < ditherColor){
@@ -1420,7 +1420,7 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
                 }
                 else if(context->type == RIF_GFX_ContextTypeBitmap){
                     
-                    #ifdef PLAYDATE
+                    #ifdef RIF_PLAYDATE
                     RIF_pd->graphics->fillRect(x, y, 1, 1, (adjustedColor < ditherColor) ? kColorBlack : kColorWhite);
                     #endif
                 }
@@ -1483,8 +1483,8 @@ RIF_Rect librif_gfx_get_transform_rect(RIF_GFX_Transform *transform){
     
     RIF_DrawBounds bounds = RIF_DrawBounds_new();
     
-    float rotation_sin = sinf(transform->rotation * (M_PI / 180.0f));
-    float rotation_cos = cosf(transform->rotation * (M_PI / 180.0f));
+    float rotation_sin = sinf(transform->rotation * ((float)M_PI / 180));
+    float rotation_cos = cosf(transform->rotation * ((float)M_PI / 180));
     
     for(int i = 0; i < n; i++){
         
@@ -1539,7 +1539,7 @@ static RIF_DrawBounds RIF_DrawBounds_new(void){
     };
 }
 
-#ifdef PLAYDATE
+#ifdef RIF_PLAYDATE
 
 void* librif_malloc(size_t size) {
     return RIF_pd->system->realloc(NULL, size);
