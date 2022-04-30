@@ -53,7 +53,6 @@ Raw image (grayscale) | PNG (RGB) | RIF compressed (grayscale)
 
 Supporting Playdate:
 
-* Add the preprocessor flag `PLAYDATE=1` in your editor
 * Change the Makefile as follows
 
 ```makefile
