@@ -3,7 +3,7 @@ import "librif"
 local gfx = playdate.graphics
 local display = playdate.display
 
-local image = librif.image.open("images/mario.rif")
+local image = librif.image.open("images/mario-raw.rif")
 
 local math_floor = math.floor
 
@@ -18,8 +18,6 @@ local rotation = 0
 local kColorWhite = playdate.graphics.kColorWhite
 local drawBounds = table.pack(0, 0, 0, 0)
 
-display.setRefreshRate(0)
-
 function librif_test.update()
 
     if not imageLoaded then
@@ -27,8 +25,6 @@ function librif_test.update()
         local success, closed = image:read(10 * 1000)
         if closed then
             imageLoaded = true
-
-            display.setRefreshRate(30)
         end
     else
         local height = 300

@@ -285,18 +285,12 @@ for input_file in input_files:
             for pattern in patterns:
                 pattern_pixels = pattern[1]
 
-                if alpha_channel:
-                    for pixel in pattern_pixels:
-                        color, alpha = pixel
-                        
+                for pixel in pattern_pixels:
+                    color, alpha = pixel
+                    
+                    data.extend(color.to_bytes(1, byteorder="big"))
+                    if alpha_channel:
                         data.extend(alpha.to_bytes(1, byteorder="big"))
-                        if not (alpha == 0):
-                            data.extend(color.to_bytes(1, byteorder="big"))
-                else:
-                    for pixel in pattern_pixels:
-                        color, alpha = pixel
-                        
-                        data.extend(color.to_bytes(1, byteorder="big"))
 
             for index in cells:
                 data.extend(index.to_bytes(4, byteorder="big"))
@@ -309,12 +303,10 @@ for input_file in input_files:
                     pixel = pixels[y][x]
                     color, alpha = pixel
 
+                    data.extend(color.to_bytes(1, byteorder="big"))
                     if alpha_channel:
                         data.extend(alpha.to_bytes(1, byteorder="big"))
-                        if not (alpha == 0):
-                            data.extend(color.to_bytes(1, byteorder="big"))
-                    else:
-                        data.extend(color.to_bytes(1, byteorder="big"))
+                        
 
         if os.path.isdir(output_dir):
             output_filename = filename_no_ext + ".rif"

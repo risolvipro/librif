@@ -145,7 +145,7 @@ static uint8_t rif_byte_4_buffer[4];
 
 static RIF_Image* librif_image_base(void);
 
-static size_t get_pattern_size_in_bytes(unsigned int patternSize, bool alpha);
+static size_t get_pixels_size_in_bytes(int width, int height, bool alpha);
 
 static void librif_cimage_read_patterns(RIF_CImage *image, size_t size);
 static void librif_cimage_read_cells(RIF_CImage *image, size_t size);
@@ -166,7 +166,7 @@ static RIF_GFX_Context librif_gfx_context_new(RIF_GFX_ContextType type);
 static void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *context);
 
 static void librif_gfx_will_draw_pixel(RIF_OpaqueImage *opaqueImage, int x, int y);
-static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int i, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction);
+static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction);
 
 static RIF_Rect librif_gfx_get_transform_rect(RIF_GFX_Transform *transform);
 static RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image);
@@ -190,7 +190,6 @@ RIF_Image* librif_image_base(void){
     image->hasAlpha = false;
     
     image->pixels = NULL;
-    image->pixels_a = NULL;
     
     #ifdef RIF_PLAYDATE
     image->pd_file = NULL;
@@ -208,7 +207,7 @@ RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
     bool isNull = false;
     
     #ifdef RIF_PLAYDATE
-    image->pd_file = RIF_pd->file->open(filename, kFileRead|kFileReadData);
+    image->pd_file = RIF_pd->file->open(filename, kFileRead);
     
     if(image->pd_file == NULL){
         isNull = true;
@@ -231,29 +230,18 @@ RIF_Image* librif_image_open(const char *filename, RIF_Pool *pool){
 
     image->width = librif_read_uint32(image);
     image->height = librif_read_uint32(image);
-
-    size_t numberOfPixels = image->width * image->height;
     
-    image->totalBytes = numberOfPixels * sizeof(uint8_t);
+    size_t pixelsSizeInBytes = get_pixels_size_in_bytes(image->width, image->height, image->hasAlpha);
+    
     image->readBytes = 0;
-    
-    if(image->hasAlpha){
-        if(pool != NULL){
-            image->pixels_a = pool->address;
-            pool->address += numberOfPixels * sizeof(RIF_Pixel);
-        }
-        else {
-            image->pixels_a = librif_malloc(numberOfPixels * sizeof(RIF_Pixel));
-        }
+    image->totalBytes = pixelsSizeInBytes;
+
+    if(pool != NULL){
+        image->pixels = pool->address;
+        pool->address += pixelsSizeInBytes;
     }
     else {
-        if(pool != NULL){
-            image->pixels = pool->address;
-            pool->address += numberOfPixels * sizeof(uint8_t);
-        }
-        else {
-            image->pixels = librif_malloc(numberOfPixels * sizeof(uint8_t));
-        }
+        image->pixels = librif_malloc(pixelsSizeInBytes);
     }
     
     image->opaque = librif_opaque_from_image(image);
@@ -279,32 +267,13 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
         closeFile = true;
     }
     
-    if(image->hasAlpha){
-        size_t endRead = image->readBytes + chunk;
-        
-        for(size_t i = image->readBytes; i < endRead; i++){
-            uint8_t alpha = librif_read_uint8(image);
-
-            uint8_t color = 0;
-            if(alpha != 0){
-                color = librif_read_uint8(image);
-            }
-            
-            image->pixels_a[i] = (RIF_Pixel){
-                .color = color,
-                .alpha = alpha
-            };
-        }
-    }
-    else {
-        void *buffer = &image->pixels[image->readBytes];
-        
-        #ifdef RIF_PLAYDATE
-        RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunk);
-        #else
-        fread(buffer, 1, chunk, image->file);
-        #endif
-    }
+    void *buffer = &image->pixels[image->readBytes];
+    
+    #ifdef RIF_PLAYDATE
+    RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunk);
+    #else
+    fread(buffer, 1, chunk, image->file);
+    #endif
     
     image->readBytes += chunk;
 
@@ -333,16 +302,11 @@ RIF_Image* librif_image_new(int width, int height){
     
     image->width = width;
     image->height = height;
+        
+    size_t pixelsSizeInBytes = get_pixels_size_in_bytes(image->width, image->height, image->hasAlpha);
     
-    size_t numberOfPixels = image->width * image->height;
-    image->pixels_a = librif_malloc(numberOfPixels * sizeof(RIF_Pixel));
-    
-    for(int i = 0; i < numberOfPixels; i++){
-        image->pixels_a[i] = (RIF_Pixel){
-            .color = 0,
-            .alpha = 0
-        };
-    }
+    image->pixels = librif_malloc(pixelsSizeInBytes);
+    memset(&image->pixels, 0, pixelsSizeInBytes);
     
     image->opaque = librif_opaque_from_image(image);
     
@@ -357,19 +321,10 @@ RIF_Image* librif_image_copy(RIF_Image *image){
     
     copied->width = image->width;
     copied->height = image->height;
-
-    size_t numberOfPixels = copied->width * copied->height;
     
-    if(image->hasAlpha){
-        size_t size = numberOfPixels * sizeof(RIF_Pixel);
-        copied->pixels_a = librif_malloc(size);
-        memcpy(copied->pixels_a, image->pixels_a, size);
-    }
-    else {
-        size_t size = numberOfPixels * sizeof(uint8_t);
-        copied->pixels = librif_malloc(size);
-        memcpy(copied->pixels, image->pixels, size);
-    }
+    size_t size = get_pixels_size_in_bytes(copied->width, copied->height, copied->hasAlpha);
+    copied->pixels = librif_malloc(size);
+    memcpy(copied->pixels, image->pixels, size);
     
     copied->opaque = librif_opaque_from_image(copied);
     
@@ -406,13 +361,13 @@ void librif_image_get_pixel(RIF_Image *image, int x, int y, uint8_t *color, uint
         }
         return;
     }
-
+    
     if(image->hasAlpha){
-        RIF_Pixel pixel = image->pixels_a[y * image->width + x];
-
-        *color = pixel.color;
+        size_t i = (y * image->width + x) * 2;
+        
+        *color = image->pixels[i];
         if(alpha != NULL){
-            *alpha = pixel.alpha;
+            *alpha = image->pixels[i + 1];
         }
     }
     else {
@@ -425,16 +380,15 @@ void librif_image_get_pixel(RIF_Image *image, int x, int y, uint8_t *color, uint
 
 void librif_image_set_pixel(RIF_Image *image, int x, int y, uint8_t color, uint8_t alpha){
     if(x >= 0 && x < image->width && y >= 0 && y < image->height){
-        unsigned int i = y * image->width + x;
         
         if(image->hasAlpha){
-            image->pixels_a[i] = (RIF_Pixel){
-                .color = color,
-                .alpha = alpha
-            };
+            size_t i = (y * image->width + x) * 2;
+            
+            image->pixels[i] = color;
+            image->pixels[i + 1] = alpha;
         }
         else {
-            image->pixels[i] = color;
+            image->pixels[y * image->width + x] = color;
         }
     }
 }
@@ -485,93 +439,32 @@ RIF_CImage* librif_cimage_open(const char *filename, RIF_Pool *pool){
     unsigned int numberOfPatterns = librifc_read_uint32(image);
     image->numberOfPatterns = numberOfPatterns;
 
-    image->patternsRead = 0;
-    image->cellsRead = 0;
-    
-    size_t patternSizeInBytes = get_pattern_size_in_bytes(patternSize, image->hasAlpha);
+    size_t pixelsSizeInBytes = get_pixels_size_in_bytes(image->patternSize, image->patternSize, image->hasAlpha);
+
+    size_t cellsSizeInBytes = numberOfCells * sizeof(uint8_t*);
+    size_t patternsSizeInBytes = numberOfPatterns * pixelsSizeInBytes;
     
     image->readBytes = 0;
-    image->totalBytes = patternSizeInBytes * numberOfPatterns + numberOfCells * patternIndexInBytes;
+    image->totalBytes = patternsSizeInBytes + numberOfCells * patternIndexInBytes;
+    
+    image->patternsReadBytes = 0;
+    image->patternsTotalBytes = patternsSizeInBytes;
+    
+    image->cellsRead = 0;
     
     image->patterns = NULL;
-    image->patterns_a = NULL;
-    
     image->cells = NULL;
-    image->cells_a = NULL;
     
-    int pixelsInPattern = patternSize * patternSize;
-
-    if(image->hasAlpha){
-        image->cells_a = librif_malloc(numberOfCells * sizeof(RIF_Cell_A));
-        image->patterns_a = librif_malloc(numberOfPatterns * sizeof(RIF_Pattern_A*));
+    if(pool != NULL){
+        image->cells = pool->address;
+        pool->address += cellsSizeInBytes;
         
-        size_t pixelsSizeInBytes = pixelsInPattern * sizeof(RIF_Pixel);
-        
-        if(pool != NULL){
-            image->cells_a = pool->address;
-            pool->address += numberOfCells * sizeof(RIF_Cell_A);
-            
-            image->patterns = pool->address;
-            
-            pool->address += numberOfPatterns * sizeof(RIF_Pattern_A*);
-
-            for(int i = 0; i < numberOfPatterns; i++){
-                void *patternPtr = pool->address;
-                pool->address += sizeof(RIF_Pattern_A);
-                
-                RIF_Pattern_A pattern_a = {
-                    .pixels = pool->address
-                };
-                
-                pool->address += pixelsSizeInBytes;
-                
-                memcpy(patternPtr, &pattern_a, sizeof(RIF_Pattern_A));
-                image->patterns_a[i] = patternPtr;
-            }
-        }
-        else {
-            for(int i = 0; i < numberOfPatterns; i++){
-                RIF_Pattern_A *pattern_a = librif_malloc(sizeof(RIF_Pattern_A));
-                pattern_a->pixels = librif_malloc(pixelsSizeInBytes);
-                image->patterns_a[i] = pattern_a;
-            }
-        }
+        image->patterns = pool->address;
+        pool->address += patternsSizeInBytes;
     }
     else {
-        size_t pixelsSizeInBytes = pixelsInPattern * sizeof(uint8_t);
-        
-        if(pool != NULL){
-            image->cells = pool->address;
-            pool->address += numberOfCells * sizeof(RIF_Cell);
-            
-            image->patterns = pool->address;
-            
-            pool->address += numberOfPatterns * sizeof(RIF_Pattern*);
-
-            for(int i = 0; i < numberOfPatterns; i++){
-                void *patternPtr = pool->address;
-                pool->address += sizeof(RIF_Pattern);
-                
-                RIF_Pattern pattern = {
-                    .pixels = pool->address
-                };
-                
-                pool->address += pixelsSizeInBytes;
-                
-                memcpy(patternPtr, &pattern, sizeof(RIF_Pattern));
-                image->patterns[i] = patternPtr;
-            }
-        }
-        else {
-            image->cells = librif_malloc(numberOfCells * sizeof(RIF_Cell));
-            image->patterns = librif_malloc(numberOfPatterns * sizeof(RIF_Pattern*));
-            
-            for(int i = 0; i < numberOfPatterns; i++){
-                RIF_Pattern *pattern = librif_malloc(sizeof(RIF_Pattern));
-                pattern->pixels = librif_malloc(pixelsSizeInBytes);
-                image->patterns[i] = pattern;
-            }
-        }
+        image->cells = librif_malloc(cellsSizeInBytes);
+        image->patterns = librif_malloc(patternsSizeInBytes);
     }
 
     image->opaque = librif_opaque_from_cimage(image);
@@ -588,7 +481,7 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
     bool closeFile = false;
     
     if(size > 0){
-        if(image->patternsRead < image->numberOfPatterns){
+        if(image->patternsReadBytes < image->patternsTotalBytes){
             librif_cimage_read_patterns(image, size);
         }
         else if(image->cellsRead < image->numberOfCells){
@@ -624,71 +517,36 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
 }
 
 void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
-    
-    int numberOfPixels = image->patternSize * image->patternSize;
-    
-    size_t patternInBytes = numberOfPixels;
-    if(image->hasAlpha){
-        patternInBytes = numberOfPixels * 2;
-    }
-    
-    int chunk = image->numberOfPatterns;
+        
+    size_t chunk = image->patternsTotalBytes;
     if(size > 0){
-        chunk = (float)size / patternInBytes;
+        chunk = size;
     }
     
-    if(chunk == 0){
-        chunk = 1;
+    if((image->patternsReadBytes + chunk) >= image->patternsTotalBytes){
+        chunk = image->patternsTotalBytes - image->patternsReadBytes;
     }
     
-    if((image->patternsRead + chunk) >= image->numberOfPatterns){
-        chunk = image->numberOfPatterns - image->patternsRead;
-    }
-    
-    size_t endRead = image->patternsRead + chunk;
-    
-    for(size_t i = image->patternsRead; i < endRead; i++){
-        if(image->hasAlpha){
-            RIF_Pattern_A *pattern_a = image->patterns_a[i];
+    void *buffer = &image->patterns[image->patternsReadBytes];
 
-            for(int j = 0; j < numberOfPixels; j++){
-                uint8_t alpha = librifc_read_uint8(image);
-
-                uint8_t color = 0;
-                if(alpha != 0){
-                    color = librifc_read_uint8(image);
-                }
-                
-                pattern_a->pixels[j] = (RIF_Pixel){
-                    .color = color,
-                    .alpha = alpha
-                };
-            }
-        }
-        else {
-            RIF_Pattern *pattern = image->patterns[i];
-            void *buffer = pattern->pixels;
-            
-            #ifdef RIF_PLAYDATE
-            RIF_pd->file->read(image->pd_file, buffer, numberOfPixels);
-            #else
-            fread(buffer, 1, numberOfPixels, image->file);
-            #endif
-        }
-    }
+    #ifdef RIF_PLAYDATE
+    RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunk);
+    #else
+    fread(buffer, 1, chunk, image->file);
+    #endif
     
-    image->patternsRead += chunk;
-    image->readBytes += chunk * get_pattern_size_in_bytes(image->patternSize, image->hasAlpha);
+    image->patternsReadBytes += chunk;
+    image->readBytes += chunk;
 }
 
 void librif_cimage_read_cells(RIF_CImage *image, size_t size){
-        
+
     int chunk = image->numberOfCells;
     if(size > 0){
         chunk = (float)size / patternIndexInBytes;
     }
     
-    if(chunk == 0){
+    if(chunk < 1){
         chunk = 1;
     }
     
@@ -698,25 +556,11 @@ void librif_cimage_read_cells(RIF_CImage *image, size_t size){
         
     int endRead = image->cellsRead + chunk;
     
+    size_t pixelsSizeInBytes = get_pixels_size_in_bytes(image->patternSize, image->patternSize, image->hasAlpha);
+
     for(int i = image->cellsRead; i < endRead; i++){
         uint32_t patternIndex = librifc_read_uint32(image);
-        
-        if(image->hasAlpha){
-            RIF_Pattern_A *pattern_a = image->patterns_a[patternIndex];
-            RIF_Cell_A cell_a = {
-                .pattern = pattern_a
-            };
-
-            image->cells_a[i] = cell_a;
-        }
-        else {
-            RIF_Pattern *pattern = image->patterns[patternIndex];
-            RIF_Cell cell = {
-                .pattern = pattern
-            };
-
-            image->cells[i] = cell;
-        }
+        image->cells[i] = &image->patterns[patternIndex * pixelsSizeInBytes];
     }
     
     image->cellsRead += chunk;
@@ -741,26 +585,23 @@ void librif_cimage_get_pixel(RIF_CImage *image, int x, int y, uint8_t *color, ui
     int patternX = x - cellCol * patternSize;
     int patternY = y - cellRow * patternSize;
 
-    int cell_i = cellRow * image->cellCols + cellCol;
-    int pixel_i = patternY * patternSize + patternX;
-
-	if(image->hasAlpha){
-		RIF_Cell_A cell_a = image->cells_a[cell_i];
-		RIF_Pixel pixel = cell_a.pattern->pixels[pixel_i];
-
-		*color = pixel.color;
+    size_t cell_i = cellRow * image->cellCols + cellCol;
+    uint8_t *pattern = image->cells[cell_i];
+    
+    if(image->hasAlpha){
+        size_t pixel_i = (patternY * patternSize + patternX) * 2;
+        *color = pattern[pixel_i];
         if(alpha != NULL){
-            *alpha = pixel.alpha;
+            *alpha = pattern[pixel_i + 1];
         }
-	}
-	else {
-		RIF_Cell cell = image->cells[cell_i];
-        
-        *color = cell.pattern->pixels[pixel_i];
+    }
+    else {
+        size_t pixel_i = patternY * patternSize + patternX;
+        *color = pattern[pixel_i];
         if(alpha != NULL){
             *alpha = 255;
         }
-	}
+    }
 }
 
 RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
@@ -775,41 +616,29 @@ RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
     image->height = cimage->height;
     image->hasAlpha = cimage->hasAlpha;
     
-    size_t numberOfPixels = image->width * image->height;
+    size_t pixelsSizeInBytes = get_pixels_size_in_bytes(image->width, image->height, image->hasAlpha);
     
-    if(image->hasAlpha){
-        if(pool != NULL){
-            image->pixels_a = pool->address;
-            pool->address += numberOfPixels * sizeof(RIF_Pixel);
-        }
-        else {
-            image->pixels_a = librif_malloc(numberOfPixels * sizeof(RIF_Pixel));
-        }
+    if(pool != NULL){
+        image->pixels = pool->address;
+        pool->address += pixelsSizeInBytes;
     }
     else {
-        if(pool != NULL){
-            image->pixels = pool->address;
-            pool->address += numberOfPixels * sizeof(uint8_t);
-        }
-        else {
-            image->pixels = librif_malloc(numberOfPixels * sizeof(uint8_t));
-        }
+        image->pixels = librif_malloc(pixelsSizeInBytes);
     }
     
     for(int y = 0; y < image->height; y++){
         for(int x = 0; x < image->width; x++){
-            int i = y * image->width + x;
             
             uint8_t color, alpha;
             librif_cimage_get_pixel(cimage, x, y, &color, &alpha);
-            
+
             if(image->hasAlpha){
-                image->pixels_a[i] = (RIF_Pixel){
-                    .color = color,
-                    .alpha = alpha
-                };
+                size_t i = (y * image->width + x) * 2;
+                image->pixels[i] = color;
+                image->pixels[i + 1] = alpha;
             }
             else {
+                size_t i = y * image->width + x;
                 image->pixels[i] = color;
             }
         }
@@ -890,14 +719,16 @@ void librif_opaque_free(RIF_OpaqueImage *image){
     librif_free(image);
 }
 
-size_t get_pattern_size_in_bytes(unsigned int patternSize, bool alpha){
-    int pixelsInPattern = patternSize * patternSize;
-    
-    size_t bytes = pixelsInPattern;
+size_t get_pixels_size_in_bytes(int width, int height, bool alpha){
+    size_t numberOfPixels = width * height;
+    size_t size;
     if(alpha){
-        bytes = pixelsInPattern * 2;
+        size = numberOfPixels * sizeof(uint8_t) * 2;
     }
-    return bytes;
+    else {
+        size = numberOfPixels * sizeof(uint8_t);
+    }
+    return size;
 }
 
 uint8_t librif_read_uint8(RIF_Image *image){
@@ -939,13 +770,7 @@ uint32_t librifc_read_uint32(RIF_CImage *image){
 void librif_image_free(RIF_Image *image){
     
     if(image->pool == NULL){
-        
-        if(image->hasAlpha){
-            librif_free(image->pixels_a);
-        }
-        else {
-            librif_free(image->pixels);
-        }
+        librif_free(image->pixels);
     }
     
     librif_opaque_free(image->opaque);
@@ -955,28 +780,8 @@ void librif_image_free(RIF_Image *image){
 void librif_cimage_free(RIF_CImage *image){
 	
     if(image->pool == NULL){
-        uint32_t numberOfPatterns = image->numberOfPatterns;
-        bool alpha_channel = image->hasAlpha;
-
-        for(uint32_t i = 0; i < numberOfPatterns; i++){
-            if(alpha_channel){
-                RIF_Pattern_A *pattern_a = image->patterns_a[i];
-                librif_free(pattern_a->pixels);
-                librif_free(pattern_a);
-            }
-            else {
-                RIF_Pattern *pattern = image->patterns[i];
-                librif_free(pattern->pixels);
-                librif_free(pattern);
-            }
-        }
-        
-        if(alpha_channel){
-            librif_free(image->cells_a);
-        }
-        else {
-            librif_free(image->cells);
-        }
+        librif_free(image->patterns);
+        librif_free(image->cells);
     }
 
     librif_opaque_free(image->opaque);
@@ -1290,9 +1095,7 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
         
         for(int y1 = 0; y1 < rows; y1++){
             int absoluteY = startY + y1;
-            
-            int buffer_rows = absoluteY * context->cols;
-            
+                        
             float y_c = y1 - d_y - transform.centerY;
             
             float y_sin = y_c * rotation_sin;
@@ -1310,7 +1113,7 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                     uint8_t color, alpha;
                     librif_opaque_get_pixel(image, imageX, imageY, &color, &alpha);
                     
-                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, (buffer_rows + absoluteX), bayer_cols[absoluteX], bayer_rows[absoluteY], ditherFunction);
+                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, bayer_cols[absoluteX], bayer_rows[absoluteY], ditherFunction);
                 }
             }
         }
@@ -1321,7 +1124,6 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
             int absoluteY = startY + y1;
             
             uint8_t d_row = bayer_rows[absoluteY];
-            int buffer_rows = absoluteY * context->cols;
             
             int imageY = offsetY + y1;
             if(transform.y_scaled){
@@ -1342,7 +1144,7 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                     uint8_t color, alpha;
                     librif_opaque_get_pixel(image, imageX, imageY, &color, &alpha);
                     
-                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, (buffer_rows + absoluteX), d_col, d_row, ditherFunction);
+                    librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, d_col, d_row, ditherFunction);
                 }
             }
         }
@@ -1369,7 +1171,7 @@ void librif_gfx_will_draw_pixel(RIF_OpaqueImage *opaqueImage, int x, int y){
     gfx_draw_bounds.max_y = RIF_MAX(gfx_draw_bounds.max_y, y);
 }
 
-void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int i, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction){
+void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, uint8_t d_col, uint8_t d_row, RIF_GFX_ditherFunction ditherFunction){
     
     if(alpha == 0){
         return;
@@ -1406,6 +1208,8 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
                 
                 if(context->type == RIF_GFX_ContextTypeLCD){
                     #ifdef RIF_PLAYDATE
+                    size_t i = y * context->cols + x;
+                    
                     RIF_PD_Pixel pixel = RIF_pd_pixels[i];
                     
                     if(adjustedColor < ditherColor){
@@ -1432,21 +1236,26 @@ void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *contex
             RIF_Image *dstImage = context->dstImage;
             
             if(dstImage->hasAlpha){
-                RIF_Pixel *pixel = &dstImage->pixels_a[i];
+                size_t i = (y * context->cols + x) * 2;
                 
+                uint8_t *pixel_color = &dstImage->pixels[i];
+                uint8_t *pixel_alpha = &dstImage->pixels[i + 1];
+
                 uint8_t result_color = color;
                 uint8_t result_alpha = alpha;
                 
                 if(alpha < 255){
                     int alpha_inverse = 255 - (int)alpha;
-                    result_color = (alpha_inverse * pixel->color + alpha * color) / 255.0f;
-                    result_alpha = 255 - ((255 - pixel->alpha) * alpha_inverse / 255.0f);
+                    result_color = (alpha_inverse * (*pixel_color) + alpha * color) / 255.0f;
+                    result_alpha = 255 - ((255 - (*pixel_alpha)) * alpha_inverse / 255.0f);
                 }
                 
-                pixel->color = result_color;
-                pixel->alpha = result_alpha;
+                *pixel_color = result_color;
+                *pixel_alpha = result_alpha;
             }
             else {
+                size_t i = y * context->cols + x;
+                
                 uint8_t result_color = color;
                 
                 if(alpha < 255){

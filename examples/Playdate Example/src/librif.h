@@ -28,27 +28,6 @@ extern PlaydateAPI *RIF_pd;
 #endif
 
 typedef struct {
-    uint8_t color;
-    uint8_t alpha;
-} RIF_Pixel;
-
-typedef struct {
-	uint8_t *pixels;
-} RIF_Pattern;
-
-typedef struct {
-    RIF_Pixel *pixels;
-} RIF_Pattern_A;
-
-typedef struct {
-    RIF_Pattern *pattern;
-} RIF_Cell;
-
-typedef struct {
-    RIF_Pattern_A *pattern;
-} RIF_Cell_A;
-
-typedef struct {
     size_t size;
     void *address;
     void *startAddress;
@@ -89,7 +68,6 @@ typedef struct {
     size_t readBytes;
     
     uint8_t *pixels;
-    RIF_Pixel *pixels_a;
 
 	#ifdef RIF_PLAYDATE
     SDFile *pd_file;
@@ -115,17 +93,16 @@ typedef struct {
     
     unsigned int numberOfCells;
 
-    int patternsRead;
     int cellsRead;
 
+    size_t patternsReadBytes;
+    size_t patternsTotalBytes;
+    
     size_t readBytes;
     size_t totalBytes;
     
-    RIF_Cell *cells;
-	RIF_Cell_A *cells_a;
-
-	RIF_Pattern **patterns;
-	RIF_Pattern_A **patterns_a;
+    uint8_t **cells;
+    uint8_t *patterns;
 
 	#ifdef RIF_PLAYDATE
     SDFile *pd_file;

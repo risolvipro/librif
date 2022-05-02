@@ -102,10 +102,11 @@ static int pool_gc(lua_State *L){
 }
 
 static const lua_reg librif_pool[] = {
-    { "__gc", pool_gc },
     { "new", pool_new },
     { "clear", pool_clear },
+    // gc
     { "release", pool_release },
+    { "__gc", pool_gc },
     { NULL, NULL }
 };
 
@@ -292,7 +293,6 @@ static int image_gc(lua_State *L){
 }
 
 static const lua_reg librif_image[] = {
-    { "__gc", image_gc },
     { "open", image_open },
     { "read", image_read },
     { "getWidth", image_getWidth },
@@ -313,6 +313,8 @@ static const lua_reg librif_image[] = {
     { "toBitmap", image_to_bitmap },
     // copy
     { "copy", image_copy },
+    // gc
+    { "__gc", image_gc },
     { NULL, NULL }
 };
 
@@ -417,7 +419,7 @@ static int cimage_decompress(lua_State *L){
     
     RIF_Image *image = librif_cimage_decompress(cimage, pool);
     
-    RIF_pd->lua->pushObject(image, kCImageClass, 0);
+    RIF_pd->lua->pushObject(image, kImageClass, 0);
     
     return 1;
 }
@@ -510,7 +512,6 @@ static int cimage_gc(lua_State *L){
 }
 
 static const lua_reg librif_cimage[] = {
-    { "__gc", cimage_gc },
     { "open", cimage_open },
     { "read", cimage_read },
     { "getWidth", cimage_getWidth },
@@ -530,6 +531,8 @@ static const lua_reg librif_cimage[] = {
     { "drawInto", cimage_draw_into },
     { "transform", cimage_transform },
     { "toBitmap", cimage_to_bitmap },
+    // gc
+    { "__gc", cimage_gc },
     { NULL, NULL }
 };
 

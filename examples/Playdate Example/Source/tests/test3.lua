@@ -4,7 +4,7 @@ import "CoreLibs/sprites"
 local gfx = playdate.graphics
 local display = playdate.display
 
-local image = librif.image.open("images/mario.rif")
+local image = librif.image.open("images/mario-raw.rif")
 
 local imageLoaded = false
 local sprite = nil
@@ -13,16 +13,14 @@ local x = 0
 local regular_acceleration = 60
 local acceleration = regular_acceleration
 
-display.setRefreshRate(0)
-
 function librif_test.update()
 
     if not imageLoaded then
         -- read image in chunks of 10 KB
         local success, closed = image:read(10 * 1000)
+        
         if closed then
             imageLoaded = true
-            display.setRefreshRate(30)
 
             local bitmap = image:toBitmap()
 

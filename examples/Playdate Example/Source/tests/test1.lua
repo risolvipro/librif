@@ -30,8 +30,6 @@ end
 
 local imageLoaded = false
 
-display.setRefreshRate(0)
-
 function librif_test.update()
 
     if not imageLoaded then
@@ -39,7 +37,6 @@ function librif_test.update()
         local success, closed = image:read(10 * 1000)
         if closed then
             imageLoaded = true
-            display.setRefreshRate(30)
         end
     else
         -- save old state

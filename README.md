@@ -113,15 +113,11 @@ You can also get a pixel from `pixels` to skip some security checks.
 uint8_t color = image->pixels[y * image->width + x]
 ```
 
-```c
-RIF_Pixel pixel = image->pixels_a[y * image->width + x]
-```
-
 ### Notes
 
 * `librif_image_read`, pass `0` size to read the entire file
 * Image properties: `hasAlpha`, `width`, `height`
-* Properties `readBytes` and `totalBytes` can be used to track loading, please note that they don't reflect actual bytes.
+* Properties `readBytes` and `totalBytes` can be used to track loading
 
 ## Pool
 
@@ -241,33 +237,39 @@ Constants
 
 Format specification is subject to changes.
 
-First bytes of the file are metadata.
+### Metadata
 
-* 1 byte (uint8) for alpha support
-* 4 byte (uint32) image width
-* 4 byte (uint32) image height
+| Type | Detail |
+|:---|:---|
+| `uint8` | Alpha support |
+| `uint32` | Image width |
+| `uint32` | Image height |
 
-Pixels are stored in a rows / columns layout.
+### Pixel format
 
-### In raw mode
+| Type | Detail |
+|:---|:---|
+| Non-alpha | 1 byte per pixel |
+| Alpha | 2 byte per pixel. uint8 for color, uint8 for alpha |
 
-Non-alpha: 1 byte per pixel (uint8)
+### In Raw mode
 
-Alpha: 1 byte for alpha (uint8) and 1 byte for color (uint8). Color is skipped if alpha equals to zero
+| Size | Detail |
+|:---|:---|
+| n_pixels * pixel_size | Pixels stored in a rows / columns layout |
 
-### In compressed mode
+### In Compressed mode
 
 Additional metadata.
 
-* 4 byte (uint32) number of cells columns
-* 4 byte (uint32) number of cells rows
-* 4 byte (uint32) pattern size
-* 4 byte (uint32) number of patterns
+| Type | Detail |
+|:---|:---|
+| `uint32` | Number of cells columns |
+| `uint32` | Number of cells rows |
+| `uint32` | Pattern size |
+| `uint32` | Number of patterns |
 
-Patterns data
-
-Pattern pixels are stored in "raw mode".
-
-Cells data
-
-Pattern indexes (0-based) as 4 byte uint32.
+| Size | Detail |
+|:---|:---|
+| n_patterns * n_pixels * pixel_size | Pattern pixels (see "raw mode") |
+| n_cells * `uint32` | Pattern indexes (0-based) as `uint32` |
