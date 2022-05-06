@@ -257,25 +257,25 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
     
     bool closeFile = false;
     
-    size_t chunk = image->totalBytes;
+    size_t chunks = image->totalBytes;
     if(size > 0){
-        chunk = size;
+        chunks = size;
     }
     
-    if((image->readBytes + chunk) >= image->totalBytes){
-        chunk = image->totalBytes - image->readBytes;
+    if((image->readBytes + chunks) >= image->totalBytes){
+        chunks = image->totalBytes - image->readBytes;
         closeFile = true;
     }
     
     void *buffer = &image->pixels[image->readBytes];
     
     #ifdef RIF_PLAYDATE
-    RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunk);
+    RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunks);
     #else
-    fread(buffer, 1, chunk, image->file);
+    fread(buffer, 1, chunks, image->file);
     #endif
     
-    image->readBytes += chunk;
+    image->readBytes += chunks;
 
     if(closeFile){
         if(closed != NULL){
@@ -518,53 +518,60 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
 
 void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
         
-    size_t chunk = image->patternsTotalBytes;
+    size_t chunks = image->patternsTotalBytes;
     if(size > 0){
-        chunk = size;
+        chunks = size;
     }
     
-    if((image->patternsReadBytes + chunk) >= image->patternsTotalBytes){
-        chunk = image->patternsTotalBytes - image->patternsReadBytes;
+    if((image->patternsReadBytes + chunks) >= image->patternsTotalBytes){
+        chunks = image->patternsTotalBytes - image->patternsReadBytes;
     }
     
     void *buffer = &image->patterns[image->patternsReadBytes];
 
     #ifdef RIF_PLAYDATE
-    RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunk);
+    RIF_pd->file->read(image->pd_file, buffer, (unsigned int)chunks);
     #else
-    fread(buffer, 1, chunk, image->file);
+    fread(buffer, 1, chunks, image->file);
     #endif
     
-    image->patternsReadBytes += chunk;
-    image->readBytes += chunk;
+    image->patternsReadBytes += chunks;
+    image->readBytes += chunks;
 }
 
 void librif_cimage_read_cells(RIF_CImage *image, size_t size){
 
-    int chunk = image->numberOfCells;
+    int chunks = image->numberOfCells;
     if(size > 0){
-        chunk = (float)size / patternIndexInBytes;
+        chunks = fmaxf(1, (float)size / patternIndexInBytes);
     }
     
-    if(chunk < 1){
-        chunk = 1;
+    if((image->cellsRead + chunks) >= image->numberOfCells){
+        chunks = image->numberOfCells - image->cellsRead;
     }
+
+    size_t bufferSize = chunks * patternIndexInBytes;
+    uint8_t buffer[bufferSize];
     
-    if((image->cellsRead + chunk) >= image->numberOfCells){
-        chunk = image->numberOfCells - image->cellsRead;
-    }
-        
-    int endRead = image->cellsRead + chunk;
+    #ifdef RIF_PLAYDATE
+    RIF_pd->file->read(image->pd_file, buffer, (unsigned int)bufferSize);
+    #else
+    fread(buffer, patternIndexInBytes, chunks, image->file);
+    #endif
     
     size_t pixelsSizeInBytes = get_pixels_size_in_bytes(image->patternSize, image->patternSize, image->hasAlpha);
-
+    int endRead = image->cellsRead + chunks;
+        
+    uint8_t *bufferPtr = buffer;
+    
     for(int i = image->cellsRead; i < endRead; i++){
-        uint32_t patternIndex = librifc_read_uint32(image);
+        uint32_t patternIndex = bufferPtr[0] << 24 | bufferPtr[1] << 16 | bufferPtr[2] << 8 | bufferPtr[3];
         image->cells[i] = &image->patterns[patternIndex * pixelsSizeInBytes];
+        bufferPtr += patternIndexInBytes;
     }
     
-    image->cellsRead += chunk;
-    image->readBytes += chunk * patternIndexInBytes;
+    image->cellsRead += chunks;
+    image->readBytes += bufferSize;
 }
 
 void librif_cimage_get_pixel(RIF_CImage *image, int x, int y, uint8_t *color, uint8_t *alpha) {
@@ -585,7 +592,7 @@ void librif_cimage_get_pixel(RIF_CImage *image, int x, int y, uint8_t *color, ui
     int patternX = x - cellCol * patternSize;
     int patternY = y - cellRow * patternSize;
 
-    size_t cell_i = cellRow * image->cellCols + cellCol;
+    int cell_i = cellRow * image->cellCols + cellCol;
     uint8_t *pattern = image->cells[cell_i];
     
     if(image->hasAlpha){

@@ -18,7 +18,7 @@ function librif_test.update()
     if not imageLoaded then
         -- read image in chunks of 10 KB
         local success, closed = image:read(10 * 1000)
-        
+
         if closed then
             imageLoaded = true
 
@@ -39,8 +39,9 @@ function librif_test.update()
             acceleration = - regular_acceleration
         end
 
-        x = math.min(proposed_x, display.getWidth() - sprite.width)
-        x = math.max(0, proposed_x)
+        x = proposed_x
+        x = math.min(x, display.getWidth() - sprite.width)
+        x = math.max(0, x)
 
         local y = display:getHeight() / 2
 

@@ -250,7 +250,7 @@ Format specification is subject to changes.
 | Type | Detail |
 |:---|:---|
 | Non-alpha | 1 byte per pixel |
-| Alpha | 2 byte per pixel. uint8 for color, uint8 for alpha |
+| Alpha | 2 bytes per pixel. uint8 for color, uint8 for alpha |
 
 ### In Raw mode
 
@@ -271,5 +271,5 @@ Additional metadata.
 
 | Size | Detail |
 |:---|:---|
-| n_patterns * n_pixels * pixel_size | Pattern pixels (see "raw mode") |
-| n_cells * `uint32` | Pattern indexes (0-based) as `uint32` |
+| n_patterns * n_pixels * pixel_size | Patterns pixels (see "raw mode") |
+| n_cells * `uint32` | Patterns indexes (0-based) as `uint32` |
