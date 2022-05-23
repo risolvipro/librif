@@ -152,21 +152,20 @@ RIF_pd = pd
 librif_lua_register();
 ```
 
-### Lua setup
+### Lua
 
+Example
 ```lua
 import "librif"
 
--- init graphics (recommended)
--- graphics has a lazy loading mechanism, you may want to call it manually
--- calling graphics.init() is not required if you don't use graphics
-librif.graphics.init()
+local image = librif.image.open("image.rif")
+image:read()
 ```
 
 In Lua there are two image objects `librif.image` and `librif.cimage` that share the same methods.
 
 * `image.open(filename, [pool])` to open an image
-* `image:read(size)` to read the image, returns a tuple `(success, closed)`
+* `image:read([size])` to read the image, returns a tuple `(success, closed)`
 * `image:hasAlpha()`
 * `image:getWidth()`
 * `image:getHeight()`
@@ -184,18 +183,6 @@ In Lua there are two image objects `librif.image` and `librif.cimage` that share
 * `pool:release()`
 
 You should call `pool:release()` to let Lua Garbage Collector release the object.
-
-Example
-```lua
-local image = librif.image.open("image.rif")
-
-while true do
-    local success, closed = image:read(10 * 1000)
-    if (not success) or closed then
-        break
-    end
-end
-```
 
 ## Graphics on Playdate
 

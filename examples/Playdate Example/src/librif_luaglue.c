@@ -21,7 +21,6 @@ static char *kImageClass = "librif.image";
 static char *kCImageClass = "librif.cimage";
 static char *kPoolClass = "librif.pool";
 
-static int graphics_init(lua_State *L);
 static int graphics_setDitherType(lua_State *L);
 static int graphics_setBlendColor(lua_State *L);
 static int graphics_clearBlendColor(lua_State *L);
@@ -30,10 +29,6 @@ static int graphics_getDrawBounds(lua_State *L);
 void librif_lua_register(void){
     
     const char *err;
-    
-    if(!RIF_pd->lua->addFunction(graphics_init, "librif.graphics.init", &err)){
-        RIF_pd->system->logToConsole("%s:%i: addFunction failed, %s", __FILE__, __LINE__, err);
-    }
     
     if(!RIF_pd->lua->addFunction(graphics_setDitherType, "librif.graphics.setDitherType", &err)){
         RIF_pd->system->logToConsole("%s:%i: addFunction failed, %s", __FILE__, __LINE__, err);
@@ -134,7 +129,12 @@ static int image_open(lua_State *L){
 
 static int image_read(lua_State *L){
     RIF_Image *image = getImage(1);
-    int size = RIF_pd->lua->getArgFloat(2);
+    
+    int size = 0;
+    
+    if(!RIF_pd->lua->argIsNil(2)){
+        size = RIF_pd->lua->getArgFloat(2);
+    }
     
     bool closed;
     bool success = librif_image_read(image, size, &closed);
@@ -346,7 +346,12 @@ static int cimage_open(lua_State *L){
 
 static int cimage_read(lua_State *L){
     RIF_CImage *image = getCImage(1);
-    int size = RIF_pd->lua->getArgFloat(2);
+    
+    int size = 0;
+    
+    if(!RIF_pd->lua->argIsNil(2)){
+        size = RIF_pd->lua->getArgFloat(2);
+    }
     
     bool closed;
     bool success = librif_cimage_read(image, size, &closed);
@@ -535,13 +540,6 @@ static const lua_reg librif_cimage[] = {
     { "__gc", cimage_gc },
     { NULL, NULL }
 };
-
-static int graphics_init(lua_State *L) {
-    
-    librif_gfx_init();
-    
-    return 0;
-}
 
 static int graphics_setDitherType(lua_State *L) {
     int typeInt = RIF_pd->lua->getArgInt(1);
