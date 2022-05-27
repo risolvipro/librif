@@ -146,8 +146,8 @@ static void librif_gfx_end_draw(RIF_GFX_Context *context);
 static RIF_GFX_Context librif_gfx_context_new(RIF_GFX_ContextType type);
 static void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *context);
 
-static inline void librif_gfx_will_draw_pixel(RIF_OpaqueImage *opaqueImage, int x, int y);
-static inline void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int d_col, int d_row, int fb_index, RIF_GFX_ditherFunction ditherFunction);
+static void librif_gfx_will_draw_pixel(RIF_OpaqueImage *opaqueImage, int x, int y);
+static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int d_col, int d_row, int fb_index, RIF_GFX_ditherFunction ditherFunction);
 
 static RIF_Rect librif_gfx_get_transform_rect(RIF_GFX_Transform *transform);
 static RIF_GFX_Transform librif_get_transform(RIF_OpaqueImage *image);
@@ -271,6 +271,32 @@ bool librif_image_read(RIF_Image *image, size_t size, bool *closed){
     }
     
     return true;
+}
+
+void librif_image_get_pixel(RIF_Image *image, int x, int y, uint8_t *color, uint8_t *alpha){
+
+    if(x < 0 || x >= image->width || y < 0 || y >= image->height){
+        *color = 0;
+        if(alpha != NULL){
+            *alpha = 255;
+        }
+        return;
+    }
+    
+    if(image->hasAlpha){
+        size_t i = (y * image->width + x) * 2;
+        
+        *color = image->pixels[i];
+        if(alpha != NULL){
+            *alpha = image->pixels[i + 1];
+        }
+    }
+    else {
+        *color = image->pixels[y * image->width + x];
+        if(alpha != NULL){
+            *alpha = 255;
+        }
+    }
 }
 
 RIF_Image* librif_image_new(int width, int height){
@@ -465,6 +491,43 @@ bool librif_cimage_read(RIF_CImage *image, size_t size, bool *closed){
     }
     
     return true;
+}
+
+void librif_cimage_get_pixel(RIF_CImage *image, int x, int y, uint8_t *color, uint8_t *alpha) {
+
+    if(x < 0 || x >= image->width || y < 0 || y >= image->height){
+        *color = 0;
+        if(alpha != NULL){
+            *alpha = 255;
+        }
+        return;
+    }
+
+    int patternSize = image->patternSize;
+
+    int cellCol = x / patternSize;
+    int cellRow = y / patternSize;
+
+    int patternX = x - cellCol * patternSize;
+    int patternY = y - cellRow * patternSize;
+
+    int cell_i = cellRow * image->cellCols + cellCol;
+    uint8_t *pattern = image->cells[cell_i];
+    
+    if(image->hasAlpha){
+        size_t pixel_i = (patternY * patternSize + patternX) * 2;
+        *color = pattern[pixel_i];
+        if(alpha != NULL){
+            *alpha = pattern[pixel_i + 1];
+        }
+    }
+    else {
+        size_t pixel_i = patternY * patternSize + patternX;
+        *color = pattern[pixel_i];
+        if(alpha != NULL){
+            *alpha = 255;
+        }
+    }
 }
 
 void librif_cimage_read_patterns(RIF_CImage *image, size_t size){
@@ -1072,7 +1135,7 @@ void librif_gfx_will_draw_pixel(RIF_OpaqueImage *opaqueImage, int x, int y){
     gfx_draw_bounds.max_y = RIF_MAX(gfx_draw_bounds.max_y, y);
 }
 
-static inline void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int d_col, int d_row, int fb_index, RIF_GFX_ditherFunction ditherFunction){
+static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context *context, uint8_t color, uint8_t alpha, int x, int y, int d_col, int d_row, int fb_index, RIF_GFX_ditherFunction ditherFunction){
     
     if(alpha == 0){
         return;
