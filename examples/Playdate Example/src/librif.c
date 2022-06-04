@@ -1033,7 +1033,9 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
         float d_x = (image->x - transform.centerX) - rect.x - offsetX;
         float d_y = (image->y - transform.centerY) - rect.y - offsetY;
         
+        #ifdef RIF_PLAYDATE
         int lcd_rows = startY * LCD_ROWSIZE + startX / 8;
+        #endif
         
         for(int y1 = 0; y1 < rows; y1++){
             int absoluteY = startY + y1;
@@ -1045,14 +1047,20 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
             float y_sin = y_c * rotation_sin;
             float y_cos = y_c * rotation_cos;
             
+            #ifdef RIF_PLAYDATE
             int fb_index = lcd_rows;
+            #else
+            int fb_index = 0;
+            #endif
             
             for(int x1 = 0; x1 < cols; x1++){
                 int absoluteX = startX + x1;
                 
+                #ifdef RIF_PLAYDATE
                 if(x1 > 0 && (absoluteX & 7) == 0){
                     fb_index += 1;
                 }
+                #endif
                 
                 int d_col = absoluteX & d_mod;
                 
@@ -1069,12 +1077,16 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                 }
             }
             
+            #ifdef RIF_PLAYDATE
             lcd_rows += LCD_ROWSIZE;
+            #endif
         }
     }
     else {
         
+        #ifdef RIF_PLAYDATE
         int lcd_rows = startY * LCD_ROWSIZE + startX / 8;
+        #endif
         
         for(int y1 = 0; y1 < rows; y1++){
             int absoluteY = startY + y1;
@@ -1086,14 +1098,20 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                 imageY = roundf(imageY * transform.scaleY);
             }
             
+            #ifdef RIF_PLAYDATE
             int fb_index = lcd_rows;
+            #else
+            int fb_index = 0;
+            #endif
             
             for(int x1 = 0; x1 < cols; x1++){
                 int absoluteX = startX + x1;
                 
+                #ifdef RIF_PLAYDATE
                 if(x1 > 0 && (absoluteX & 7) == 0){
                     fb_index += 1;
                 }
+                #endif
                 
                 int d_col = absoluteX & d_mod;
                 
@@ -1110,7 +1128,9 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                 }
             }
             
+            #ifdef RIF_PLAYDATE
             lcd_rows += LCD_ROWSIZE;
+            #endif
         }
     }
     
@@ -1162,7 +1182,7 @@ static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context 
             if(drawPixel2){
                 librif_gfx_will_draw_pixel(opaqueImage, x, y);
                 
-                uint8_t ditherColor = ditherFunction(d_col, d_row);
+                uint8_t d_color = ditherFunction(d_col, d_row);
                 
                 uint8_t adjustedColor = color;
                 
@@ -1173,13 +1193,13 @@ static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context 
                 if(context->type == RIF_GFX_ContextTypeLCD){
                     #ifdef RIF_PLAYDATE
                     int mask = (1 << (7 - (x & 7)));
-                    context->pd_framebuffer[fb_index] ^= (-(adjustedColor >= ditherColor) ^ context->pd_framebuffer[fb_index]) & mask;
+                    context->pd_framebuffer[fb_index] ^= (-(adjustedColor >= d_color) ^ context->pd_framebuffer[fb_index]) & mask;
                     #endif
                 }
                 else if(context->type == RIF_GFX_ContextTypeBitmap){
                     
                     #ifdef RIF_PLAYDATE
-                    RIF_pd->graphics->fillRect(x, y, 1, 1, (adjustedColor < ditherColor) ? kColorBlack : kColorWhite);
+                    RIF_pd->graphics->fillRect(x, y, 1, 1, (adjustedColor < d_color) ? kColorBlack : kColorWhite);
                     #endif
                 }
             }
