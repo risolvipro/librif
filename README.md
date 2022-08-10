@@ -164,8 +164,9 @@ image:read()
 
 In Lua there are two image objects `librif.image` and `librif.cimage` that share the same methods.
 
-* `image.open(filename, [pool])` to open an image
-* `image:read([size])` to read the image, returns a tuple `(success, closed)`
+* `image.open(filename, [pool])` open an image
+* `image:read([size])` read the image, returns a tuple `(success, closed)`
+* `image:getPixel(x, y)` get the pixel at x, y as a tuple `(color, alpha)`
 * `image:hasAlpha()`
 * `image:getWidth()`
 * `image:getHeight()`
