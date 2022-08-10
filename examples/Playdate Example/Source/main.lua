@@ -9,6 +9,7 @@ elseif test == 2 then
 elseif test == 3 then
     import "tests/test3"
 end
+
 function playdate.update()
     librif_test.update()
 end

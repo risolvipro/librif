@@ -238,6 +238,16 @@ static int image_setRotation(lua_State *L){
     return 0;
 }
 
+static int image_setAlpha(lua_State *L){
+    RIF_Image *image = getImage(1);
+    
+    float alpha = RIF_pd->lua->getArgFloat(2);
+    
+    librif_opaque_set_alpha(image->opaque, alpha);
+    
+    return 0;
+}
+
 static int image_draw(lua_State *L){
     RIF_Image *image = getImage(1);
 
@@ -306,6 +316,7 @@ static const lua_reg librif_image[] = {
     { "setCenter", image_setCenter },
     { "setSize", image_setSize },
     { "setRotation", image_setRotation },
+    { "setAlpha", image_setAlpha },
     // drawing
     { "draw", image_draw },
     { "drawInto", image_draw_into },
@@ -471,6 +482,16 @@ static int cimage_setRotation(lua_State *L){
     
     return 0;
 }
+
+static int cimage_setAlpha(lua_State *L){
+    RIF_CImage *cimage = getCImage(1);
+    
+    float alpha = RIF_pd->lua->getArgFloat(2);
+    
+    librif_opaque_set_alpha(cimage->opaque, alpha);
+    
+    return 0;
+}
     
 static int cimage_draw(lua_State *L){
     RIF_CImage *image = getCImage(1);
@@ -531,6 +552,7 @@ static const lua_reg librif_cimage[] = {
     { "setCenter", cimage_setCenter },
     { "setSize", cimage_setSize },
     { "setRotation", cimage_setRotation },
+    { "setAlpha", cimage_setAlpha },
     // drawing
     { "draw", cimage_draw },
     { "drawInto", cimage_draw_into },

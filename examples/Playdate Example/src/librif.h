@@ -39,6 +39,7 @@ typedef struct {
     bool compressed;
     
     bool hasAlpha;
+    float filterAlpha;
     
     int width;
     int height;
@@ -142,6 +143,7 @@ void librif_cimage_free(RIF_CImage *image);
 
 void librif_opaque_set_position(RIF_OpaqueImage *image, int x, int y);
 void librif_opaque_set_rotation(RIF_OpaqueImage *image, float angle);
+void librif_opaque_set_alpha(RIF_OpaqueImage *image, float alpha);
 void librif_opaque_set_size(RIF_OpaqueImage *image, int width, int height);
 void librif_opaque_set_center(RIF_OpaqueImage *image, float x_multiplier, float y_multiplier);
 

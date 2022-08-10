@@ -23,7 +23,7 @@ parser.add_argument("-c", "--compress", help="compress the image", action="store
 parser.add_argument("-pmin", "--pattern-min", type=int, help="minimum pattern size", default=8)
 parser.add_argument("-pmax", "--pattern-max", type=int, help="maximum pattern size", default=8)
 parser.add_argument("-pstep", "--pattern-step", type=int, help="step used to find the pattern", default=2)
-parser.add_argument("--png-output", help="save greyscale png output", action="store_true")
+parser.add_argument("--png", help="save grayscale png output", action="store_true")
 
 args = parser.parse_args()
 
@@ -38,7 +38,7 @@ min_pattern_size = args.pattern_min
 max_pattern_size = args.pattern_max
 pattern_step = args.pattern_step
 
-png_output = args.png_output
+png_output = args.png
 
 def console_print(str):
     if verbose:
@@ -151,12 +151,13 @@ for input_file in input_files:
 
         if png_output:
             output_filename = output_dir + os.sep + filename_no_ext + "-grayscale.png"
-            output_im = Image.new('LA', (w, h))
+            output_im = Image.new('RGBA', (w, h))
             output_pixels = output_im.load()
 
             for y in range(0, h):
                 for x in range(0, w):
-                    output_pixels[x,y] = pixels[y][x]
+                    color, alpha = pixels[y][x]
+                    output_pixels[x,y] = (color, color, color, alpha)
 
             output_im.save(output_filename)
 

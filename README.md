@@ -29,7 +29,7 @@ The Python encoder supports the following commands:
 * `-pmin` `--pattern-min` Set the minimum pattern size for compression (default **8**)
 * `-pmax` `--pattern-max` Set the maximum pattern size for compression (default **8**)
 * `-pstep` `--pattern-step` Set the step used to find the pattern (default **2**)
-* `--png-output` Save input image as png output
+* `--png` Save input image as png output
 * `-v` `--verbose` Enable verbose mode
 
 ### Usage
@@ -189,20 +189,21 @@ You should call `pool:release()` to let Lua Garbage Collector release the object
 Drawing
 
 * `image:draw()` draw the image
-* `image:drawInto(dstImage)` draw the image into the destination image (experimental)
+* `image:drawInto(dstImage)` draw the image into the destination image
 
 Transform image
 
-* `image.setSize(width, height)`
-* `image.setPosition(x, y)`
-* `image.setCenter(x, y)` set the relative center. Pass a multiplier in the range of [0.0 - 1.0]
-* `image.setRotation(degrees)` set rotation in degrees
+* `image:setSize(width, height)`
+* `image:setPosition(x, y)`
+* `image:setCenter(x, y)` set the relative center. Pass a multiplier in the range of [0.0 - 1.0]
+* `image:setRotation(degrees)` set rotation in degrees
+* `image:setAlpha(alpha)` set image alpha [0.0 - 1.0]
 
 Copy image
 
-* `image.copy()` returns a copy of the image
-* `image.transform()` returns the transformed image as a copy
-* `image.toBitmap()` returns a Playdate image (1-bit LCDBitmap)
+* `image:copy()` returns a copy of the image
+* `image:transform()` returns the transformed image as a copy
+* `image:toBitmap()` returns a Playdate image (1-bit LCDBitmap)
 
 Clear the screen
 

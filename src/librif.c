@@ -130,6 +130,9 @@ static void librif_cimage_read_patterns(RIF_CImage *image, size_t size);
 static void librif_cimage_read_cells(RIF_CImage *image, size_t size);
 
 static inline void librif_opaque_get_pixel(RIF_OpaqueImage *image, int x, int y, uint8_t *color, uint8_t *alpha);
+static inline void librif_opaque_get_pixel_filter(RIF_OpaqueImage *image, int x, int y, uint8_t *color, uint8_t *alpha);
+
+static inline void librif_opaque_apply_filters(RIF_OpaqueImage *image, uint8_t *color, uint8_t *alpha);
 
 static RIF_OpaqueImage* librif_opaque_from_image(RIF_Image *image);
 static RIF_OpaqueImage* librif_opaque_from_cimage(RIF_CImage *image);
@@ -638,6 +641,8 @@ RIF_Image* librif_cimage_decompress(RIF_CImage *cimage, RIF_Pool *pool){
 RIF_OpaqueImage* librif_opaque_new(void){
     RIF_OpaqueImage *opaqueImage = librif_malloc(sizeof(RIF_OpaqueImage));
     
+    opaqueImage->filterAlpha = 1;
+    
     librif_opaque_reset_transform(opaqueImage);
     
     return opaqueImage;
@@ -687,6 +692,10 @@ void librif_opaque_set_position(RIF_OpaqueImage *image, int x, int y){
 
 void librif_opaque_set_rotation(RIF_OpaqueImage *image, float angle){
     image->rotation = angle;
+}
+
+void librif_opaque_set_alpha(RIF_OpaqueImage *image, float alpha){
+    image->filterAlpha = fminf(fmaxf(0, alpha), 1);
 }
 
 void librif_opaque_set_size(RIF_OpaqueImage *image, int width, int height){
@@ -805,6 +814,17 @@ static inline void librif_opaque_get_pixel(RIF_OpaqueImage *image, int x, int y,
     else {
         librif_image_get_pixel((RIF_Image*)image->image, x, y, color, alpha);
     }
+}
+
+static inline void librif_opaque_get_pixel_filter(RIF_OpaqueImage *image, int x, int y, uint8_t *color, uint8_t *alpha) {
+    
+    librif_opaque_get_pixel(image, x, y, color, alpha);
+    librif_opaque_apply_filters(image, color, alpha);
+}
+
+static inline void librif_opaque_apply_filters(RIF_OpaqueImage *image, uint8_t *color, uint8_t *alpha) {
+    
+    *alpha = (*alpha) * image->filterAlpha;
 }
 
 #ifdef RIF_PLAYDATE
@@ -1071,7 +1091,7 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                 
                 if(imageX >= 0 && imageX < image->width && imageY >= 0 && imageY < image->height){
                     uint8_t color, alpha;
-                    librif_opaque_get_pixel(image, imageX, imageY, &color, &alpha);
+                    librif_opaque_get_pixel_filter(image, imageX, imageY, &color, &alpha);
                     
                     librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, d_col, d_row, fb_index, ditherFunction);
                 }
@@ -1122,7 +1142,7 @@ void librif_gfx_draw_image_context(RIF_OpaqueImage *image, RIF_GFX_Context *cont
                 
                 if(imageX >= 0 && imageX < image->width && imageY >= 0 && imageY < image->height){
                     uint8_t color, alpha;
-                    librif_opaque_get_pixel(image, imageX, imageY, &color, &alpha);
+                    librif_opaque_get_pixel_filter(image, imageX, imageY, &color, &alpha);
                     
                     librif_gfx_draw_pixel(image, context, color, alpha, absoluteX, absoluteY, d_col, d_row, fb_index, ditherFunction);
                 }
@@ -1171,35 +1191,27 @@ static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context 
         
         if(context->type == RIF_GFX_ContextTypeLCD || context->type == RIF_GFX_ContextTypeBitmap){
             
-            bool drawPixel2 = true;
+            librif_gfx_will_draw_pixel(opaqueImage, x, y);
             
-            if(opaqueImage->hasAlpha){
-                if(alpha < 128){
-                    drawPixel2 = false;
-                }
+            uint8_t d_color = ditherFunction(d_col, d_row);
+           
+            bool draw_pixel = true;
+            
+            if(alpha < d_color && color < d_color){
+                draw_pixel = false;
             }
             
-            if(drawPixel2){
-                librif_gfx_will_draw_pixel(opaqueImage, x, y);
-                
-                uint8_t d_color = ditherFunction(d_col, d_row);
-                
-                uint8_t adjustedColor = color;
-                
-                if(opaqueImage->hasAlpha){
-                    adjustedColor = color * alpha / 255.0f;
-                }
-                
+            if(draw_pixel){
                 if(context->type == RIF_GFX_ContextTypeLCD){
                     #ifdef RIF_PLAYDATE
                     int mask = (1 << (7 - (x & 7)));
-                    context->pd_framebuffer[fb_index] ^= (-(adjustedColor >= d_color) ^ context->pd_framebuffer[fb_index]) & mask;
+                    context->pd_framebuffer[fb_index] ^= (-(color >= d_color) ^ context->pd_framebuffer[fb_index]) & mask;
                     #endif
                 }
                 else if(context->type == RIF_GFX_ContextTypeBitmap){
                     
                     #ifdef RIF_PLAYDATE
-                    RIF_pd->graphics->fillRect(x, y, 1, 1, (adjustedColor < d_color) ? kColorBlack : kColorWhite);
+                    RIF_pd->graphics->fillRect(x, y, 1, 1, (color < d_color) ? kColorBlack : kColorWhite);
                     #endif
                 }
             }
@@ -1215,6 +1227,8 @@ static void librif_gfx_draw_pixel(RIF_OpaqueImage *opaqueImage, RIF_GFX_Context 
                 uint8_t *pixel_color = &dstImage->pixels[i];
                 uint8_t *pixel_alpha = &dstImage->pixels[i + 1];
 
+                librif_opaque_apply_filters(dstImage->opaque, pixel_color, pixel_alpha);
+                
                 uint8_t result_color = color;
                 uint8_t result_alpha = alpha;
                 
