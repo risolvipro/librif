@@ -26,8 +26,10 @@ static int graphics_setBlendColor(lua_State *L);
 static int graphics_clearBlendColor(lua_State *L);
 static int graphics_getDrawBounds(lua_State *L);
 
-void librif_lua_register(void){
-    
+void register_librif(PlaydateAPI *pd){
+
+    RIF_pd = pd;
+
     const char *err;
     
     if(!RIF_pd->lua->addFunction(graphics_setDitherType, "librif.graphics.setDitherType", &err)){

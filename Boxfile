@@ -1,0 +1,7 @@
+{
+    "config": {
+        "lua_import": "src/playdate/librif.lua",
+        "include_header": "src/playdate/librif_luaglue.h",
+        "makefile": "src/playdate/librif.mk"
+    }
+}

@@ -1,5 +1,7 @@
 ## librif
 
+[![MIT License](https://img.shields.io/github/license/risolvipro/librif)](https://spdx.org/licenses/MIT.html) [![Lua Version](https://img.shields.io/badge/Lua-5.4-yellowgreen)](https://lua.org) [![Toybox Compatible](https://img.shields.io/badge/toybox.py-compatible-brightgreen)](https://toyboxpy.io) [![Latest Version](https://img.shields.io/github/v/tag/risolvipro/librif)](https://github.com/risolvipro/librif/tags)
+
 A lightweight library to encode and read grayscale images, with Playdate support.
 
 Librif stores images in raw binary data (default setting) or in a compressed format. If compression is enabled, the encoder uses a simple RLE algorithm which finds repeating patterns in the image. Librif is optimized to minimize RAM usage at runtime.
@@ -49,7 +51,18 @@ Raw image (grayscale) | PNG (RGB) | RIF compressed (grayscale)
 |---|---|---|
 | 1 MB | 34 KB (96.6%) | 77 KB (92.3%) |
 
-## Playdate support
+## Playdate support (using toybox.py)
+
+You can add it to your **Playdate** project by installing [**toybox.py**](https://toyboxpy.io), going to your project folder in a Terminal window and typing:
+
+```console
+toybox add librif
+toybox update
+```
+
+Then add `toyboxes/toybox.mk` to your existing makefile or use the `toybox setupMakefile` command to generate one.
+
+## Playdate support (manually)
 
 Change the Makefile as follows
 
