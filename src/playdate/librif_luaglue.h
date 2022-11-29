@@ -10,6 +10,7 @@
 
 #include "librif.h"
 
-void register_librif(PlaydateAPI*);
+void register_librif(PlaydateAPI *pd);
+void librif_lua_register(void);
 
 #endif /* librif_luaglue_h */
