@@ -192,7 +192,7 @@ In Lua there are two image objects `librif.image` and `librif.cimage` that share
 `librif.image` object
 
 * `image:setPixel(x, y, color, alpha)` set the pixel at x, y
-* `image:copy()` returns a copy of the
+* `image:copy()` returns a copy of the image
 
 `librif.cimage` object
 
