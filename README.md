@@ -1,6 +1,6 @@
 ## librif
 
-[![MIT License](https://img.shields.io/github/license/risolvipro/librif)](https://spdx.org/licenses/MIT.html) [![Lua Version](https://img.shields.io/badge/Lua-5.4-yellowgreen)](https://lua.org) [![Toybox Compatible](https://img.shields.io/badge/toybox.py-compatible-brightgreen)](https://toyboxpy.io) [![Latest Version](https://img.shields.io/github/v/tag/risolvipro/librif)](https://github.com/risolvipro/librif/tags)
+[![MIT License](https://img.shields.io/github/license/risolvipro/librif)](https://spdx.org/licenses/MIT.html) [![Lua Version](https://img.shields.io/badge/Lua-5.4-yellowgreen)](https://lua.org) [![Toybox Compatible](https://img.shields.io/badge/toybox.py-compatible-brightgreen)](https://toyboxpy.io)
 
 A lightweight library to encode and read grayscale images, with Playdate support.
 
@@ -15,7 +15,6 @@ Librif stores images in raw binary data (default setting) or in a compressed for
 - [C Library](#c-library)
 - [Pool](#pool)
 - [Lua for Playdate](#lua-for-playdate)
-- [Graphics on Playdate](#graphics-on-playdate)
 - [Format specification](#format-specification)
 
 ## Setup
@@ -79,7 +78,7 @@ Sample code
 #include "librif.h"
 
 // set PlaydateAPI
-RIF_pd = pd
+librif_init(playdate);
 ```
 
 ## C Library
@@ -113,7 +112,7 @@ if(image != NULL){
 }
 ```
 
-Getting a pixel from image.
+Getting a pixel.
 
 ```c
 uint8_t color, alpha;
@@ -124,6 +123,12 @@ You can also get a pixel from `pixels` to skip some security checks.
 
 ```c
 uint8_t color = image->pixels[y * image->width + x]
+```
+
+Setting a pixel.
+
+```c
+librif_image_set_pixel(image, x, y, 0, 255);
 ```
 
 ### Notes
@@ -159,18 +164,16 @@ librif_pool_free(pool);
 #include "librif_luaglue.h"
 
 // set PlaydateAPI
-RIF_pd = pd
+librif_init(playdate);
 
 // register lua classes
-librif_lua_register();
+librif_register_lua();
 ```
 
 ### Lua
 
 Example
 ```lua
-import "librif"
-
 local image = librif.image.open("image.rif")
 image:read()
 ```
@@ -186,6 +189,11 @@ In Lua there are two image objects `librif.image` and `librif.cimage` that share
 * `image:getReadBytes()`
 * `image:getTotalBytes()`
 
+`librif.image` object
+
+* `image:setPixel(x, y, color, alpha)` set the pixel at x, y
+* `image:copy()` returns a copy of the
+
 `librif.cimage` object
 
 * `cimage:decompress([pool])` decompress a cimage returning an image object
@@ -193,47 +201,11 @@ In Lua there are two image objects `librif.image` and `librif.cimage` that share
 `librif.pool` object
 
 * `pool.new(size)`
+* `pool:realloc(size)`
 * `pool:clear()`
 * `pool:release()`
 
 You should call `pool:release()` to let Lua Garbage Collector release the object.
-
-## Graphics on Playdate
-
-Drawing
-
-* `image:draw()` draw the image
-* `image:drawInto(dstImage)` draw the image into the destination image
-
-Transform image
-
-* `image:setSize(width, height)`
-* `image:setPosition(x, y)`
-* `image:setCenter(x, y)` set the relative center. Pass a multiplier in the range of [0.0 - 1.0]
-* `image:setRotation(degrees)` set rotation in degrees
-* `image:setAlpha(alpha)` set image alpha [0.0 - 1.0]
-
-Copy image
-
-* `image:copy()` returns a copy of the image
-* `image:transform()` returns the transformed image as a copy
-* `image:toBitmap()` returns a Playdate image (1-bit LCDBitmap)
-
-Clear the screen
-
-* `graphics.getDrawBounds()` returns the last drawing bounds as a tuple `x, y, width, height`. Useful to clear the screen in the next cycle. You should call it after `image:draw()`
-
-Additional methods
-
-* `graphics.setDitherType(type)`
-* `graphics.setBlendColor(color)` set a blend color that will be ignored in drawing. Use it to get transparency on non-alpha images.
-* `graphics.clearBlendColor()` clear the blend color
-
-Constants
-
-* `graphics.kDitherTypeBayer2`
-* `graphics.kDitherTypeBayer4`
-* `graphics.kDitherTypeBayer8`
 
 ## Format specification
 

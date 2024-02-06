@@ -12,17 +12,14 @@
 #include "librif_luaglue.h"
 
 #ifdef _WINDLL
-#define DllExport __declspec(dllexport)
-#else
-#define DllExport
+__declspec(dllexport)
 #endif
-
-DllExport int eventHandler(PlaydateAPI* playdate, PDSystemEvent event, uint32_t arg) {
+int eventHandler(PlaydateAPI* playdate, PDSystemEvent event, uint32_t arg) {
     
     if(event == kEventInitLua){
-        RIF_pd = playdate;
+        librif_init(playdate);
         
-        librif_lua_register();
+        librif_register_lua();
     }
 	
 	return 0;

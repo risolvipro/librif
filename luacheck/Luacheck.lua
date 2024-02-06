@@ -14,26 +14,37 @@ return {
             fields = {
                 image = {
                     fields = {
-                        open = {}
+                        open = {},
+                        read = {},
+                        getWidth = {},
+                        getHeight = {},
+                        hasAlpha = {},
+                        getPixel = {},
+                        setPixel = {},
+                        getReadBytes = {},
+                        getTotalBytes = {},
+                        copy = {}
                     }
                 },
                 cimage = {
                     fields = {
-                        open = {}
+                        open = {},
+                        read = {},
+                        getWidth = {},
+                        getHeight = {},
+                        hasAlpha = {},
+                        getPixel = {},
+                        getReadBytes = {},
+                        getTotalBytes = {},
+                        decompress = {}
                     }
                 },
                 pool = {
                     fields = {
                         new = {},
-                        clear = {}
-                    }
-                },
-                graphics = {
-                    fields = {
-                        setDitherType = {},
-                        setBlendColor = {},
-                        clearBlendColor = {},
-                        getDrawBounds = {}
+                        realloc = {},
+                        clear = {},
+                        release = {}
                     }
                 }
             }

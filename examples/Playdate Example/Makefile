@@ -22,7 +22,7 @@ SRC += src/librif_luaglue.c
 ASRC = setup.s
 
 # List all user directories here
-UINCDIR = src
+UINCDIR += src
 
 # List all user C define here, like -D_DEBUG=1
 UDEFS = 

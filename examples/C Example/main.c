@@ -108,6 +108,8 @@ void read_cimage_chunk(void) {
 
 int main(int argc, const char * argv[]) {
     
+    librif_init();
+    
     read_image();
     read_cimage();
     

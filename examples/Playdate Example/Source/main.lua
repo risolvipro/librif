@@ -1,15 +1,12 @@
-local test = 2
+local gfx = playdate.graphics
+local display = playdate.display
 
-librif_test = {}
+local image = librif.image.open("images/track-1024-raw.rif")
+image:read()
 
-if test == 1 then
-    import "tests/test1"
-elseif test == 2 then
-    import "tests/test2"
-elseif test == 3 then
-    import "tests/test3"
-end
+local color, alpha = image:getPixel(0, 0)
+print(color, alpha)
 
 function playdate.update()
-    librif_test.update()
+    
 end
