@@ -25,12 +25,12 @@ Install Pillow `pip install Pillow` (required for encoder)
 
 The Python encoder supports the following commands:
 
-* `-i` `--input` Input file (*optional*). If no input file is passed the enconder will look for *src* and *dst* folders in the working directory
+* `-i` `--input` Input file
 * `-c` `--compress` Enable compression algorithm
 * `-pmin` `--pattern-min` Set the minimum pattern size for compression (default **8**)
 * `-pmax` `--pattern-max` Set the maximum pattern size for compression (default **8**)
 * `-pstep` `--pattern-step` Set the step used to find the pattern (default **2**)
-* `--png` Save input image as png output
+* `-png` Save input image as png output
 * `-v` `--verbose` Enable verbose mode
 
 ### Usage

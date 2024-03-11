@@ -6,6 +6,7 @@
 //
 
 #include "librif.h"
+#include <math.h>
 
 #ifdef RIF_PLAYDATE
 PlaydateAPI *RIF_pd;
