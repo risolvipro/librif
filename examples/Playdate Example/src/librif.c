@@ -34,7 +34,7 @@ static void* librif_malloc(size_t size);
 static void* librif_realloc(void *ptr, size_t size);
 static void librif_free(void *ptr);
 
-void librif_init_base(void){
+static void librif_init_base(void){
     
 }
 

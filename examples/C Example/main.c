@@ -9,8 +9,8 @@
 
 #include "librif.h"
 
-char *filename1 = "../../images/track-1024-raw.rif";
-char *filename2 = "../../images/track-1024-compressed.rif";
+char *filename1 = "../../images/track-1024.rif";
+char *filename2 = "../../images/track-1024.rifc";
 
 void read_image(void) {
     
