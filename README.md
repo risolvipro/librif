@@ -248,6 +248,6 @@ Additional metadata.
 | n_patterns * n_pixels * pixel_size | Patterns pixels (see "raw mode") |
 | n_cells * `uint32` | Patterns indexes (0-based) as `uint32` |
 
-### AI Disclosure
+## AI Disclosure
 
 AI was not used to develop this library.
